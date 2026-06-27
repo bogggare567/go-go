@@ -4,6 +4,43 @@
 
 ---
 
+## Flash without Arduino IDE (Mac / Linux)
+
+No IDE needed — just Python and a USB cable.
+
+**1. Install esptool**
+```bash
+pip install esptool
+```
+
+**2. Connect the board via USB, find the port**
+```bash
+ls /dev/cu.usb*
+# Usually: /dev/cu.usbserial-XXXX  or  /dev/cu.SLAB_USBtoUART
+```
+
+**3. Flash**
+```bash
+esptool.py \
+  --chip esp32s3 \
+  --port /dev/cu.usbserial-XXXX \
+  --baud 921600 \
+  --flash-mode dio \
+  --flash-freq 80m \
+  --flash-size 8MB \
+  write_flash \
+  0x0    firmware/bootloader.bin \
+  0x8000 firmware/partitions.bin \
+  0xe000 firmware/boot_app0.bin \
+  0x10000 firmware/go-go.bin
+```
+
+Replace `/dev/cu.usbserial-XXXX` with your actual port from step 2.
+
+After flashing, the board resets automatically and boots GO-GO.
+
+---
+
 ## English
 
 GO-GO is an Arduino firmware for the **Heltec WiFi LoRa 32 V3** board that turns it into a one-button wireless show control remote for live theatre, concerts, and events.
