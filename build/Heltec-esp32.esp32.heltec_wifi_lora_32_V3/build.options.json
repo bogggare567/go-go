@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "../../..",
+  "builtInLibrariesFolders": "/Users/bogdankorablev/Library/Arduino15/libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "Heltec-esp32:esp32:heltec_wifi_lora_32_V3:UploadSpeed=921600,CPUFreq=240,DebugLevel=none,LoopCore=1,EventsCore=1,EraseFlash=all,LORAWAN_REGION=0,LoRaWanDebugLevel=0,LORAWAN_DEVEUI=0,LORAWAN_PREAMBLE_LENGTH=0,SLOW_CLK_TPYE=0",
+  "hardwareFolders": "/Users/bogdankorablev/Library/Arduino15/packages/Heltec-esp32/hardware/esp32/3.3.8,/Users/bogdankorablev/Library/Arduino15/packages/Heltec-esp32/hardware/esp32/3.3.8",
+  "otherLibrariesFolders": "/Users/bogdankorablev/Documents/Arduino/libraries",
+  "sketchLocation": "/Users/bogdankorablev/Documents/Arduino/LoRa_soundkorb"
+}
