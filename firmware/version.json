@@ -1,5 +1,5 @@
 {
-  "version": "v16.10",
+  "version": "v16.11",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "WiFi Setup fixes: reliable join, OSC target block on the onboarding page, no screen stomp"
+  "notes": "Fix crash-reboot after selecting OSC mode (WiFi power-save Cache error)"
 }

@@ -318,6 +318,7 @@ static void handleJoin() {
   safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
   saveWifiCreds();
   WiFi.mode(WIFI_AP_STA);  // keep our AP alive while trying the venue network
+  WiFi.setSleep(false);
   WiFi.begin(wifiSsid, wifiPass);
   joinAttempt = true;
   joinStart = millis();
@@ -456,8 +457,14 @@ void startWebSetup() {
       stopBLEMode();
       webPausedBle = true;
     }
+    // Stop an in-flight join attempt before reconfiguring the interface,
+    // and keep the modem awake: the power-save wake path crashes the chip
+    // when the station is disconnected (Cache error in ppTask).
+    WiFi.disconnect();
+    delay(50);
     wifi_mode_t m = WiFi.getMode();
     WiFi.mode(m == WIFI_OFF ? WIFI_AP : (wifi_mode_t)(m | WIFI_AP));
+    WiFi.setSleep(false);
     WiFi.softAP(getUniqueName().c_str(), webApPass().c_str());
     apRaised = true;
     // Captive portal: the OS probes a known URL right after joining; the DNS

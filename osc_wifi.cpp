@@ -22,6 +22,9 @@ bool connectWiFiWithDisplay(bool allowPortal) {
     return false;
   }
   WiFi.mode(WIFI_STA);
+  // Modem power-save crashes the PHY wake path while disconnected
+  // (Cache error in ppTask/pm_disconnected_wake) and adds OSC latency.
+  WiFi.setSleep(false);
   WiFi.begin(wifiSsid, wifiPass);
 
   if (allowPortal) {
