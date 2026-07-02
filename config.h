@@ -159,7 +159,7 @@ const unsigned long BATTERY_READ_INTERVAL = 10000;
 
 const unsigned long PING_INTERVAL = 2000;
 const unsigned long BEACON_INTERVAL = 2000;
-const unsigned long LINK_TIMEOUT = 2800;
+const unsigned long LINK_TIMEOUT = 5200;   // 2 missed pings + margin; single loss must not drop the link
 
 const unsigned long ACK_TIMEOUT = 700;
 const int MAX_RETRIES = 3;

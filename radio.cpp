@@ -316,8 +316,12 @@ void sendHeartbeat() {
   if (searchActive) return;  // don't spray pings across bins while scanning
   unsigned long now = millis();
 
-  if (now - lastPingTime >= PING_INTERVAL) {
+  // Jittered interval: a fixed 2 s cycle drifts into alignment with the
+  // gateway's 2 s beacon and the packets then collide in bursts.
+  static unsigned long pingJitter = 0;
+  if (now - lastPingTime >= PING_INTERVAL + pingJitter) {
     lastPingTime = now;
+    pingJitter = (unsigned long)random(0, 500);
     sendPacket(PKT_PING, pairedRxId ? pairedRxId : 0xFFFFFFFF, 0);
   }
 
@@ -329,7 +333,10 @@ void sendHeartbeat() {
 void sendGatewayBeacon() {
   if (!isLoRaGateway() || !loraInitialized) return;
   unsigned long now = millis();
-  if (now - lastBeaconTime >= BEACON_INTERVAL) {
+  // Beacon is a discovery aid. While a remote is actively pinging us there
+  // is nothing to discover, and beaconing only risks colliding with pings.
+  bool linkAlive = (lastPeerId != 0) && (now - lastLinkSeen < 3000);
+  if (!linkAlive && now - lastBeaconTime >= BEACON_INTERVAL) {
     lastBeaconTime = now;
     sendPacket(PKT_BEACON, 0xFFFFFFFF, 0);
   }
@@ -549,12 +556,25 @@ static void gatewayAutoStep() {
   }
 }
 
+static uint8_t binIndexOf(float freq) {
+  const RegionPlan& r = currentRegion();
+  int idx = (int)((freq - r.scanFrom - 0.1f) / 0.2f + 0.5f);
+  if (idx < 0) idx = 0;
+  if (idx >= gridCount()) idx = gridCount() - 1;
+  return (uint8_t)idx;
+}
+
+// Active search: the master's beacon fills only ~1.5% of airtime, so passive
+// sniffing (CAD) almost always misses it. Instead the slave ASKS: it sends a
+// PING on each bin and listens for the PONG the gateway always returns.
+// Starts at the last known bin, so a reconnect is typically instant.
 static void slaveAutoStep() {
   unsigned long now = millis();
 
   if (linkOK) {
     if (searchActive) {
-      // Found the master: identity signature on the LED (Morse "GO").
+      // Locked onto the master on this bin.
+      radioCfg.freq = searchFreqNow;
       searchActive = false;
       searchDwelling = false;
       ledPlayMorseGo();
@@ -563,36 +583,35 @@ static void slaveAutoStep() {
   }
 
   if (!searchActive) {
-    // Give the normal ping/pong 5 s to recover before we start hunting.
-    if (lastLinkSeen != 0 && now - lastLinkSeen < 5000) return;
+    // Give the normal ping/pong 6 s to recover before we start hunting.
+    if (lastLinkSeen != 0 && now - lastLinkSeen < 6000) return;
     searchActive = true;
     searchDwelling = false;
-    searchIdx = 0;
+    searchIdx = binIndexOf(radioCfg.freq);
+  }
+
+  static unsigned long searchPauseUntil = 0;
+  if (searchPauseUntil) {
+    if (now < searchPauseUntil) return;
+    searchPauseUntil = 0;
   }
 
   if (searchDwelling) {
-    // Parked on an active bin, waiting for a beacon (master sends every 2 s).
-    if (now - searchDwellStart > 2600) {
-      searchDwelling = false;
-      searchIdx = (searchIdx + 1) % gridCount();
-    }
+    if (now - searchDwellStart < 250) return;  // PONG listen window
+    searchDwelling = false;
+    searchIdx = (searchIdx + 1) % gridCount();
+    // Full pass done without an answer: breathe for a second, then retry.
+    if (searchIdx == binIndexOf(radioCfg.freq)) searchPauseUntil = now + 1000;
     return;
   }
 
-  // Probe the next bin: CAD is a ~2 ms LoRa-activity sniff.
   searchFreqNow = gridFreq(searchIdx);
   lora.standby();
   lora.setFrequency(searchFreqNow);
-  int16_t cad = lora.scanChannel();
-  if (cad == RADIOLIB_LORA_DETECTED) {
-    radioCfg.freq = searchFreqNow;
-    lora.startReceive();
-    searchDwelling = true;
-    searchDwellStart = now;
-  } else {
-    lora.startReceive();
-    searchIdx = (searchIdx + 1) % gridCount();
-  }
+  lora.startReceive();
+  transmitPacket(PKT_PING, pairedRxId ? pairedRxId : 0xFFFFFFFF, 0, radioCfg.counter++);
+  searchDwelling = true;
+  searchDwellStart = now;
 }
 
 void radioAutoStep() {
