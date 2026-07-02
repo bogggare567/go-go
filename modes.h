@@ -14,6 +14,12 @@ void restartIntoMode(uint8_t mode);
 void restartIntoRxOutput(uint8_t out);
 void afterBoot();
 
+// Hold actions fired from loop() while the button is still held
+void handleModeSelectHold();
+void handleOutputSelectHold();
+void handlePairSelectHold();
+void confirmRegionSelection();
+
 bool isConnectionReady();
 void performGO();
 void performPanic();

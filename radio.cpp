@@ -343,14 +343,14 @@ static const float CH_KR920[] = {922.1f, 922.3f, 922.5f, 922.7f, 922.9f};
 static const float CH_CN470[] = {470.3f, 471.9f, 473.5f, 475.1f, 476.7f};
 
 static const RegionPlan REGIONS[] = {
-  {"EU868", CH_EU868, 5, 14},
-  {"RU864", CH_RU864, 5, 14},
-  {"US915", CH_US915, 5, 22},
-  {"AU915", CH_AU915, 5, 22},
-  {"AS923", CH_AS923, 5, 16},
-  {"IN865", CH_IN865, 3, 20},
-  {"KR920", CH_KR920, 5, 14},
-  {"CN470", CH_CN470, 5, 17},  // needs the 470-510 MHz hardware variant
+  {"EU868", CH_EU868, 5, 14, 863.0f, 870.0f},
+  {"RU864", CH_RU864, 5, 14, 864.0f, 870.0f},
+  {"US915", CH_US915, 5, 22, 902.0f, 928.0f},
+  {"AU915", CH_AU915, 5, 22, 915.0f, 928.0f},
+  {"AS923", CH_AS923, 5, 16, 920.0f, 925.0f},
+  {"IN865", CH_IN865, 3, 20, 865.0f, 867.0f},
+  {"KR920", CH_KR920, 5, 14, 920.9f, 923.3f},
+  {"CN470", CH_CN470, 5, 17, 470.0f, 490.0f},  // needs the 470-510 MHz hardware variant
 };
 
 uint8_t regionCount() {
@@ -366,11 +366,12 @@ const RegionPlan& currentRegion() {
 }
 
 void applyRadioFreq() {
-  const RegionPlan& r = currentRegion();
   if (radioCfg.region >= regionCount()) radioCfg.region = 0;
+  const RegionPlan& r = currentRegion();
   if (radioCfg.chan >= r.numChannels) radioCfg.chan = 0;
-  if (radioCfg.power > r.maxPower) radioCfg.power = r.maxPower;
-  radioCfg.freq = r.channels[radioCfg.chan] + radioCfg.tuneKhz / 1000.0f;
+  // Always run at the region's legal maximum (owner request: max safe power).
+  radioCfg.power = r.maxPower;
+  radioCfg.freq = r.channels[radioCfg.chan];
 }
 
 void cycleFrequency() {
@@ -380,42 +381,44 @@ void cycleFrequency() {
   restartLoRa();
 }
 
-void cycleRegion() {
-  radioCfg.region = (radioCfg.region + 1) % regionCount();
-  radioCfg.chan = 0;
-  radioCfg.tuneKhz = 0;
-  applyRadioFreq();
-  saveRadioConfig();
-  restartLoRa();
+// ============================================================================
+// Spectrum view: sweep the region band, sample instantaneous RSSI per bin.
+// ============================================================================
+static bool spectrumActive = false;
+
+void enterSpectrum() {
+  if (!loraInitialized) initLoRa();
+  spectrumActive = true;
+  spectrumPos = 0;
+  memset(spectrumLevels, 0, sizeof(spectrumLevels));
 }
 
-void cycleTune() {
-  // 0 -> +25 -> ... -> +100 -> -100 -> ... -> -25 -> 0 (25 kHz steps)
-  radioCfg.tuneKhz += 25;
-  if (radioCfg.tuneKhz > 100) radioCfg.tuneKhz = -100;
-  applyRadioFreq();
-  saveRadioConfig();
-  restartLoRa();
+void exitSpectrum() {
+  spectrumActive = false;
+  if (loraInitialized) {
+    lora.standby();
+    lora.setFrequency(radioCfg.freq);
+    lora.startReceive();
+  }
 }
 
-void cyclePower() {
-  static const int8_t powers[] = {10, 14, 17, 20, 22};
-  const int n = sizeof(powers) / sizeof(powers[0]);
-  int idx = 0;
-  for (int i = 0; i < n; i++) {
-    if (powers[i] == radioCfg.power) {
-      idx = i;
-      break;
-    }
+void spectrumSweepStep() {
+  if (!spectrumActive || !loraInitialized) return;
+  const RegionPlan& r = currentRegion();
+  // A few bins per loop pass keeps the button responsive.
+  for (int i = 0; i < 8; i++) {
+    float f = r.scanFrom + (r.scanTo - r.scanFrom) * spectrumPos / 63.0f;
+    lora.standby();
+    lora.setFrequency(f);
+    lora.startReceive();
+    delay(2);
+    float rssi = lora.getRSSI(false);   // instantaneous, not packet RSSI
+    int h = (int)((rssi + 130.0f) * (40.0f / 70.0f));  // -130..-60 dBm -> 0..40 px
+    if (h < 0) h = 0;
+    if (h > 40) h = 40;
+    spectrumLevels[spectrumPos] = (uint8_t)h;
+    spectrumPos = (spectrumPos + 1) % 64;
   }
-  // Next allowed step: skip values above the region cap.
-  for (int step = 0; step < n; step++) {
-    idx = (idx + 1) % n;
-    if (powers[idx] <= currentRegion().maxPower) break;
-  }
-  radioCfg.power = powers[idx];
-  saveRadioConfig();
-  restartLoRa();
 }
 
 void cycleOutput() {

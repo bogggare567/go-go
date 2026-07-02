@@ -13,10 +13,10 @@ const uint8_t MENU_BLE_ITEMS[] = {
   MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_REMOTE_ITEMS[] = {
-  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_GATEWAY_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_OUTPUT, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_OUTPUT, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 
 // ============================================================================
@@ -238,6 +238,7 @@ void drawModeSelect() {
   }
   drawCenteredText("click next hold ok", 56, 1);
 
+  drawHoldProgress();
   display.display();
 }
 
@@ -257,6 +258,7 @@ void drawOutputSelect() {
   drawCenteredText(outputHint(selectedOutputMode), 43, 1);
   drawCenteredText("click next hold ok", 56, 1);
 
+  drawHoldProgress();
   display.display();
 }
 
@@ -287,6 +289,7 @@ void drawPairSelect() {
     }
     drawCenteredText("click next", 54, 1);
   }
+  drawHoldProgress();
   display.display();
 }
 
@@ -564,16 +567,11 @@ void printMenuLabel(uint8_t item) {
     case MENU_LORA_FREQ:
       display.print("Freq: "); display.print(radioCfg.freq, 2);
       break;
-    case MENU_LORA_POWER:
-      display.print("Power: "); display.print(radioCfg.power); display.print("dBm");
-      break;
     case MENU_REGION:
       display.print("Region: "); display.print(currentRegion().name);
       break;
-    case MENU_TUNE:
-      display.print("Tune: ");
-      if (radioCfg.tuneKhz >= 0) display.print("+");
-      display.print(radioCfg.tuneKhz); display.print("kHz");
+    case MENU_SPECTRUM:
+      display.print("Spectrum");
       break;
     case MENU_GO_KEY:
       display.print("GO key: "); display.print(keyName(goKeyCode));
@@ -631,21 +629,75 @@ void drawMenu() {
 
   display.setTextColor(SSD1306_WHITE);
   drawCenteredText("click next hold ok", 56, 1);
+  drawHoldProgress();
   display.display();
 }
 
-void drawModeConfirm() {
+// Visual feedback for hold-to-select: a bar sweeps across the hint line
+// while the button is held; the action fires when it reaches the edge.
+void drawHoldProgress() {
+  if (!buttonPressed) return;
+  unsigned long held = millis() - pressStart;
+  if (held < 150) return;
+  if (held > HOLD_SELECT_MS) held = HOLD_SELECT_MS;
+  int w = (int)(held * SCREEN_WIDTH / HOLD_SELECT_MS);
+  display.fillRect(0, 53, w, 11, SSD1306_INVERSE);
+}
+
+void drawRegionSelect() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
-  drawCenteredText("SWITCH MODE?", 0, 1);
+  drawCenteredText(regionConfigured ? "REGION" : "SELECT REGION", 0, 1);
 
-  String transition = String(shortModeLabel(controlMode)) + " -> " + String(shortModeLabel(selectedMode));
-  drawCenteredText(transition.c_str(), 18, 2);
-  drawCenteredText(selectedMode == MODE_LORA_GATEWAY ? "then choose output" : modeHint(selectedMode), 38, 1);
-  drawCenteredText("hold: yes", 49, 1);
-  drawCenteredText("click: no", 57, 1);
+  const RegionPlan& r = regionPlan(selectedRegion);
+  display.fillRect(0, 13, SCREEN_WIDTH, 18, SSD1306_WHITE);
+  display.setTextColor(SSD1306_BLACK);
+  drawCenteredText(r.name, 17, 1, SSD1306_BLACK);
 
+  display.setTextColor(SSD1306_WHITE);
+  char buf[24];
+  snprintf(buf, sizeof(buf), "%.1f-%.1f MHz", r.scanFrom, r.scanTo);
+  drawCenteredText(buf, 34, 1);
+  snprintf(buf, sizeof(buf), "%d ch, %d dBm", r.numChannels, r.maxPower);
+  drawCenteredText(buf, 45, 1);
+  drawCenteredText("click next hold ok", 56, 1);
+
+  drawHoldProgress();
+  display.display();
+}
+
+void drawSpectrum() {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1);
+
+  const RegionPlan& r = currentRegion();
+  display.setCursor(0, 0);
+  display.print(r.name);
+  char buf[20];
+  snprintf(buf, sizeof(buf), "%.0f-%.0f", r.scanFrom, r.scanTo);
+  int16_t x1, y1;
+  uint16_t w, h;
+  display.getTextBounds(buf, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(SCREEN_WIDTH - w, 0);
+  display.print(buf);
+
+  for (int i = 0; i < 64; i++) {
+    int bh = spectrumLevels[i];
+    if (bh > 0) display.fillRect(i * 2, 53 - bh, 2, bh, SSD1306_WHITE);
+  }
+  display.drawFastHLine(0, 53, SCREEN_WIDTH, SSD1306_WHITE);
+
+  // dashed marker on the current channel frequency
+  if (r.scanTo > r.scanFrom) {
+    int mx = (int)((radioCfg.freq - r.scanFrom) / (r.scanTo - r.scanFrom) * 127.0f);
+    if (mx >= 0 && mx <= 127) {
+      for (int yy = 10; yy < 53; yy += 4) display.drawPixel(mx, yy, SSD1306_WHITE);
+    }
+  }
+
+  drawCenteredText("click: back", 56, 1);
   display.display();
 }
 
@@ -837,7 +889,8 @@ void updateLoRaLinkScreen() {
   if (currentScreen == SCREEN_BOOT || currentScreen == SCREEN_MENU || currentScreen == SCREEN_STATUS ||
       currentScreen == SCREEN_MODE_SELECT || currentScreen == SCREEN_MODE_CONFIRM || currentScreen == SCREEN_OUTPUT_SELECT ||
       currentScreen == SCREEN_PAIR_SELECT || currentScreen == SCREEN_GO_SENT || currentScreen == SCREEN_PANIC_SENT ||
-      currentScreen == SCREEN_MODE_INFO) return;
+      currentScreen == SCREEN_MODE_INFO || currentScreen == SCREEN_REGION_SELECT ||
+      currentScreen == SCREEN_SPECTRUM) return;
 
   bool found = loraPeerFound();
   if (!found) {

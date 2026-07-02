@@ -104,7 +104,8 @@ void loadRadioConfig() {
   radioCfg.counter = prefs.getUShort("cnt", 0);
   radioCfg.region = prefs.getUChar("region", 0);
   radioCfg.chan = prefs.getUChar("chan", 255);
-  radioCfg.tuneKhz = prefs.getShort("tune", 0);
+  radioCfg.tuneKhz = 0;  // fine-tune UI removed in v16.4; field kept for compat
+  regionConfigured = prefs.getBool("regset", false);
   prefs.end();
 
   if (radioCfg.chan == 255) {
@@ -140,6 +141,6 @@ void saveRadioConfig() {
   prefs.putUShort("cnt", radioCfg.counter);
   prefs.putUChar("region", radioCfg.region);
   prefs.putUChar("chan", radioCfg.chan);
-  prefs.putShort("tune", radioCfg.tuneKhz);
+  prefs.putBool("regset", regionConfigured);
   prefs.end();
 }

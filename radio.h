@@ -11,14 +11,19 @@ struct RegionPlan {
   const char* name;
   const float* channels;  // MHz
   uint8_t numChannels;
-  int8_t maxPower;        // dBm cap for the region
+  int8_t maxPower;        // dBm cap for the region; TX always runs at this
+  float scanFrom;         // spectrum scan range, MHz
+  float scanTo;
 };
 uint8_t regionCount();
 const RegionPlan& regionPlan(uint8_t idx);
 const RegionPlan& currentRegion();
-void applyRadioFreq();    // recompute radioCfg.freq from region/chan/tune
-void cycleRegion();
-void cycleTune();
+void applyRadioFreq();    // recompute radioCfg.freq from region/chan
+
+// Live spectrum view (also the base for the future auto channel scan)
+void enterSpectrum();
+void exitSpectrum();
+void spectrumSweepStep();
 
 bool initLoRa();
 void stopLoRa();
@@ -33,7 +38,6 @@ void sendHeartbeat();
 void sendGatewayBeacon();
 void retryPendingAck();
 void cycleFrequency();
-void cyclePower();
 void cycleOutput();
 
 bool loraPeerFound();

@@ -122,7 +122,9 @@ enum Screen : uint8_t {
   SCREEN_LORA_LINK_LOST,
   SCREEN_GO_SENT,
   SCREEN_PANIC_SENT,
-  SCREEN_NO_CONNECTION
+  SCREEN_NO_CONNECTION,
+  SCREEN_REGION_SELECT,
+  SCREEN_SPECTRUM
 };
 
 enum : uint8_t {
@@ -135,6 +137,7 @@ enum : uint8_t {
   MENU_TUNE,
   MENU_GO_KEY,
   MENU_PANIC_KEY,
+  MENU_SPECTRUM,
   MENU_PAIR,
   MENU_OUTPUT,
   MENU_RESET,
@@ -282,3 +285,8 @@ extern bool gatewayWifiReady;
 extern DiscoveredPeer discoveredPeers[6];
 extern uint8_t selectedPeerIndex;
 extern uint32_t pairedRxId;
+
+extern bool regionConfigured;      // region was explicitly chosen once
+extern uint8_t selectedRegion;     // cursor on the region select screen
+extern uint8_t spectrumLevels[64]; // live RSSI bars for the spectrum screen
+extern uint8_t spectrumPos;

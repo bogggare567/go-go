@@ -105,6 +105,14 @@ void startModeNow(uint8_t mode) {
   showSimpleMessage("Mode saved", modeLabel(mode), 500);
   bool ready = initSelectedMode(mode == MODE_OSC_WIFI);
 
+  // First LoRa use out of the box: ask for the region once.
+  if (isLoRaMode() && ready && !regionConfigured) {
+    selectedRegion = radioCfg.region;
+    previousScreen = SCREEN_GO;
+    setScreen(SCREEN_REGION_SELECT);
+    return;
+  }
+
   // Important UX rule: after choosing LoRa TX, immediately choose/pair the RX.
   // Do not drop the user to the GO screen before target selection.
   if (mode == MODE_LORA_REMOTE && ready) {
@@ -152,6 +160,13 @@ void startRxNow(uint8_t out) {
     ready = initSelectedMode(false);
   }
 
+  if (ready && !regionConfigured) {
+    selectedRegion = radioCfg.region;
+    previousScreen = SCREEN_GO;
+    setScreen(SCREEN_REGION_SELECT);
+    return;
+  }
+
   if (ready) {
     setScreen(SCREEN_GO);
   } else {
@@ -173,6 +188,12 @@ void restartIntoMode(uint8_t mode) {
   modeConfigured = true;
   showSimpleMessage("Mode saved", modeLabel(mode), 500);
   bool ready = initSelectedMode(mode == MODE_OSC_WIFI);
+  if (isLoRaMode() && ready && !regionConfigured) {
+    selectedRegion = radioCfg.region;
+    previousScreen = SCREEN_GO;
+    setScreen(SCREEN_REGION_SELECT);
+    return;
+  }
   if (mode == MODE_LORA_REMOTE && ready) {
     selectedPeerIndex = 0;
     setScreen(SCREEN_PAIR_SELECT);
@@ -208,6 +229,12 @@ void restartIntoRxOutput(uint8_t out) {
     ready = radioOk && gatewayWifiReady;
   } else {
     ready = initSelectedMode(false);
+  }
+  if (ready && !regionConfigured) {
+    selectedRegion = radioCfg.region;
+    previousScreen = SCREEN_GO;
+    setScreen(SCREEN_REGION_SELECT);
+    return;
   }
   setScreen(ready ? SCREEN_GO : SCREEN_NO_CONNECTION);
   messageTime = millis();
@@ -339,6 +366,10 @@ void powerOffDevice() {
   display.display();
   display.ssd1306_command(SSD1306_DISPLAYOFF);
 
+  // The hold action fires while the button is still down: wait for release,
+  // otherwise ext0 (wake on LOW) would wake us up immediately.
+  while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+
   // Keep the BOOT/user button as an optional wake source as well.
   esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);
   delay(100);
@@ -374,19 +405,15 @@ void handleMenuSelect() {
       setScreen(SCREEN_MENU);
       break;
 
-    case MENU_LORA_POWER:
-      cyclePower();
-      setScreen(SCREEN_MENU);
-      break;
-
     case MENU_REGION:
-      cycleRegion();
-      setScreen(SCREEN_MENU);
+      selectedRegion = radioCfg.region;
+      previousScreen = SCREEN_MENU;
+      setScreen(SCREEN_REGION_SELECT);
       break;
 
-    case MENU_TUNE:
-      cycleTune();
-      setScreen(SCREEN_MENU);
+    case MENU_SPECTRUM:
+      enterSpectrum();
+      setScreen(SCREEN_SPECTRUM);
       break;
 
     case MENU_GO_KEY:
@@ -420,6 +447,64 @@ void handleMenuSelect() {
     case MENU_BACK:
       setScreen(SCREEN_GO);
       break;
+  }
+}
+
+// v16.4: hold-to-select actions fire while the button is held (like PANIC),
+// with a progress bar on screen. No extra confirmation screens.
+void handleModeSelectHold() {
+  if (!modeConfigured) {
+    startModeNow(selectedMode);
+  } else if (selectedMode == controlMode) {
+    if (selectedMode == MODE_LORA_GATEWAY) {
+      selectedOutputMode = gatewayOutputMode;
+      setScreen(SCREEN_OUTPUT_SELECT);
+    } else {
+      setScreen(SCREEN_MENU);
+    }
+  } else {
+    // Getting here already took a deliberate hold; that IS the confirmation.
+    restartIntoMode(selectedMode);
+  }
+}
+
+void handleOutputSelectHold() {
+  if (!modeConfigured || controlMode != MODE_LORA_GATEWAY) {
+    startRxNow(selectedOutputMode);
+  } else {
+    restartIntoRxOutput(selectedOutputMode);
+  }
+}
+
+void handlePairSelectHold() {
+  int count = discoveredPeerCount();
+  if (count > 0) {
+    int idx = discoveredIndexByVisibleOrder(selectedPeerIndex);
+    if (idx >= 0) savePairedRxId(discoveredPeers[idx].id);
+    showSimpleMessage("RX paired", peerTargetString().c_str(), 800);
+  } else {
+    savePairedRxId(0);
+    showSimpleMessage("Pair cleared", "Target: ANY", 800);
+  }
+  setScreen(SCREEN_GO);
+}
+
+void confirmRegionSelection() {
+  radioCfg.region = selectedRegion;
+  radioCfg.chan = 0;
+  radioCfg.tuneKhz = 0;
+  applyRadioFreq();
+  regionConfigured = true;
+  saveRadioConfig();
+  restartLoRa();
+  showSimpleMessage("Region saved", currentRegion().name, 600);
+  if (previousScreen == SCREEN_MENU) {
+    setScreen(SCREEN_MENU);
+  } else if (isLoRaRemote()) {
+    selectedPeerIndex = 0;
+    setScreen(SCREEN_PAIR_SELECT);
+  } else {
+    setScreen(SCREEN_GO);
   }
 }
 

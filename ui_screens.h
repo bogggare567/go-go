@@ -39,8 +39,10 @@ int activeMenuCount();
 uint8_t activeMenuItem();
 void printMenuLabel(uint8_t item);
 void drawMenu();
-void drawModeConfirm();
 void drawModeInfo();
+void drawRegionSelect();
+void drawSpectrum();
+void drawHoldProgress();
 
 void startBootAnimation();
 void updateBootAnimation();
