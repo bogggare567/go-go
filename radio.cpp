@@ -296,8 +296,9 @@ void processLoRaPacket() {
     } else if (p.type == PKT_HOP && freqAuto) {
       // Master announced a channel change: follow immediately. The master
       // keeps announcing on the old channel briefly, then joins us.
-      if (pairedRxId == 0 || pairedRxId == p.senderId) {
-        radioCfg.freq = gridFreq(p.ackCommand);
+      if ((pairedRxId == 0 || pairedRxId == p.senderId) &&
+          p.ackCommand < currentRegion().numChannels) {
+        radioCfg.freq = currentRegion().channels[p.ackCommand];
         tuneTo(radioCfg.freq);
         lastLinkSeen = millis();
       }
@@ -446,6 +447,8 @@ void exitSpectrum() {
     lora.setFrequency(radioCfg.freq);
     lora.startReceive();
   }
+  // Re-link fast: the remote pings immediately instead of waiting a cycle.
+  lastPingTime = 0;
 }
 
 // ============================================================================
@@ -481,29 +484,38 @@ static void tuneTo(float f) {
   lora.startReceive();
 }
 
-// Blocking sweep of the whole grid; returns the quietest bin.
+// The master picks ONLY among the region's curated channels: the low edge of
+// the band (863-865 in EU) is crowded with wireless audio and alarms, and a
+// short channel list keeps the slave's search fast (5 probes ~ 1.3 s).
+// The dense grid stays for the spectrum screen only.
 static uint8_t pickCleanestBin() {
+  const RegionPlan& r = currentRegion();
   uint8_t best = 0;
   float bestRssi = 1000.0f;
-  uint8_t n = gridCount();
-  for (uint8_t i = 0; i < n; i++) {
+  for (uint8_t i = 0; i < r.numChannels; i++) {
     lora.standby();
-    lora.setFrequency(gridFreq(i));
+    lora.setFrequency(r.channels[i]);
     lora.startReceive();
-    delay(3);
-    float rssi = lora.getRSSI(false);
-    if (rssi < bestRssi) {
-      bestRssi = rssi;
+    // Worst of 3 samples: a bursty interferer OFF during one sample must
+    // not make a channel look clean.
+    float worst = -200.0f;
+    for (int k = 0; k < 3; k++) {
+      delay(4);
+      float rssi = lora.getRSSI(false);
+      if (rssi > worst) worst = rssi;
+    }
+    if (worst < bestRssi) {
+      bestRssi = worst;
       best = i;
     }
   }
   return best;
 }
 
-// Master: pick the cleanest bin now and park there (boot / after hop decision).
+// Master: park on a curated channel (boot / after hop decision).
 static void masterAdoptBin(uint8_t idx) {
   autoGridIdx = idx;
-  radioCfg.freq = gridFreq(idx);
+  radioCfg.freq = currentRegion().channels[idx];
   tuneTo(radioCfg.freq);
 }
 
@@ -531,6 +543,16 @@ static void masterAnnounceAndHop(uint8_t newIdx) {
 
 static void gatewayAutoStep() {
   unsigned long now = millis();
+
+  // A working link is sacred: while a remote is pinging us we NEVER retune,
+  // no matter how the channel looks (owner rule: no ether experiments
+  // during a show). Hops happen only when nobody is talking to us anyway.
+  bool linkAlive = (lastPeerId != 0) && (now - lastLinkSeen < 8000);
+  if (linkAlive) {
+    noiseCount = 0;
+    return;
+  }
+
   if (now - lastNoiseSample < 300) return;
   lastNoiseSample = now;
 
@@ -538,30 +560,30 @@ static void gatewayAutoStep() {
   noiseIdx = (noiseIdx + 1) % 20;
   if (noiseCount < 20) { noiseCount++; return; }
 
-  // Noise floor = the QUIETEST sample in the window: our own link's packets
-  // spike single samples, but the floor between packets stays low on a
-  // healthy channel.
+  // Noise floor = the QUIETEST sample in the window: stray packets spike
+  // single samples, but the floor between packets stays low on a healthy
+  // channel.
   float floorRssi = 0;
   for (int i = 0; i < 20; i++) floorRssi = (i == 0 || noiseWin[i] < floorRssi) ? noiseWin[i] : floorRssi;
 
-  bool sustainedNoise = floorRssi > -90.0f;
-  bool linkQuiet = (lastCommandSeen == 0) || (now - lastCommandSeen > 10000);
+  bool sustainedNoise = floorRssi > -85.0f;
   bool cooledDown = (lastHopTime == 0) || (now - lastHopTime > 60000);
 
-  if (sustainedNoise && linkQuiet && cooledDown) {
+  if (sustainedNoise && cooledDown) {
     uint8_t candidate = pickCleanestBin();
-    tuneTo(gridFreq(autoGridIdx));  // back to the current channel to announce
+    tuneTo(currentRegion().channels[autoGridIdx]);  // back to announce
     if (candidate != autoGridIdx) masterAnnounceAndHop(candidate);
     else noiseCount = 0;
   }
 }
 
-static uint8_t binIndexOf(float freq) {
+static uint8_t chanIndexNear(float freq) {
   const RegionPlan& r = currentRegion();
-  int idx = (int)((freq - r.scanFrom - 0.1f) / 0.2f + 0.5f);
-  if (idx < 0) idx = 0;
-  if (idx >= gridCount()) idx = gridCount() - 1;
-  return (uint8_t)idx;
+  uint8_t best = 0;
+  for (uint8_t i = 1; i < r.numChannels; i++) {
+    if (fabsf(freq - r.channels[i]) < fabsf(freq - r.channels[best])) best = i;
+  }
+  return best;
 }
 
 // Active search: the master's beacon fills only ~1.5% of airtime, so passive
@@ -587,7 +609,7 @@ static void slaveAutoStep() {
     if (lastLinkSeen != 0 && now - lastLinkSeen < 6000) return;
     searchActive = true;
     searchDwelling = false;
-    searchIdx = binIndexOf(radioCfg.freq);
+    searchIdx = chanIndexNear(radioCfg.freq);
   }
 
   static unsigned long searchPauseUntil = 0;
@@ -599,13 +621,13 @@ static void slaveAutoStep() {
   if (searchDwelling) {
     if (now - searchDwellStart < 250) return;  // PONG listen window
     searchDwelling = false;
-    searchIdx = (searchIdx + 1) % gridCount();
-    // Full pass done without an answer: breathe for a second, then retry.
-    if (searchIdx == binIndexOf(radioCfg.freq)) searchPauseUntil = now + 1000;
+    searchIdx = (searchIdx + 1) % currentRegion().numChannels;
+    // Full pass done without an answer: breathe briefly, then retry.
+    if (searchIdx == chanIndexNear(radioCfg.freq)) searchPauseUntil = now + 700;
     return;
   }
 
-  searchFreqNow = gridFreq(searchIdx);
+  searchFreqNow = currentRegion().channels[searchIdx];
   lora.standby();
   lora.setFrequency(searchFreqNow);
   lora.startReceive();
