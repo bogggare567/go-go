@@ -10,3 +10,4 @@
 #include "radio.h"
 #include "modes.h"
 #include "ui_screens.h"
+#include "web_ui.h"

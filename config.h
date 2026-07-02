@@ -1,4 +1,5 @@
 // GO-GO — shared types, pins, constants and global state declarations.
+#define GOGO_VERSION "v16.6"
 // Split 1:1 from the v15 monolith; behavior must stay identical.
 #pragma once
 
@@ -124,7 +125,8 @@ enum Screen : uint8_t {
   SCREEN_PANIC_SENT,
   SCREEN_NO_CONNECTION,
   SCREEN_REGION_SELECT,
-  SCREEN_SPECTRUM
+  SCREEN_SPECTRUM,
+  SCREEN_WEB_SETUP
 };
 
 enum : uint8_t {
@@ -138,6 +140,7 @@ enum : uint8_t {
   MENU_GO_KEY,
   MENU_PANIC_KEY,
   MENU_SPECTRUM,
+  MENU_WEB,
   MENU_PAIR,
   MENU_OUTPUT,
   MENU_RESET,

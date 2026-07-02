@@ -39,6 +39,9 @@ const char* keyName(uint8_t code) {
   return "?";
 }
 
+int keyOptionCount() { return KEY_OPTION_COUNT; }
+uint8_t keyOptionCode(int i) { return KEY_OPTIONS[i % KEY_OPTION_COUNT].code; }
+
 static uint8_t nextKeyOption(uint8_t code) {
   for (int i = 0; i < KEY_OPTION_COUNT; i++) {
     if (KEY_OPTIONS[i].code == code) return KEY_OPTIONS[(i + 1) % KEY_OPTION_COUNT].code;

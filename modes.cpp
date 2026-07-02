@@ -416,6 +416,11 @@ void handleMenuSelect() {
       setScreen(SCREEN_SPECTRUM);
       break;
 
+    case MENU_WEB:
+      startWebSetup();
+      setScreen(SCREEN_WEB_SETUP);
+      break;
+
     case MENU_GO_KEY:
       cycleGoKey();
       setScreen(SCREEN_MENU);

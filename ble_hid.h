@@ -12,3 +12,5 @@ void sendUsbKeyPress(uint8_t hidCode);
 const char* keyName(uint8_t code);
 void cycleGoKey();
 void cyclePanicKey();
+int keyOptionCount();
+uint8_t keyOptionCode(int i);

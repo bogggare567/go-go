@@ -153,6 +153,8 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
+  webLoop();
+
   if (now - lastBatteryRead >= BATTERY_READ_INTERVAL) {
     lastBatteryRead = now;
     updateBattery();
@@ -326,6 +328,13 @@ void loop() {
       }
     }
 
+    else if (currentScreen == SCREEN_WEB_SETUP) {
+      if (dur < HOLD_SELECT_MS) {
+        stopWebSetup();
+        setScreen(SCREEN_GO);
+      }
+    }
+
     else if (currentScreen == SCREEN_GO) {
       if (dur < PANIC_HOLD_MS) {
         shortPressCount++;
@@ -439,6 +448,9 @@ void loop() {
         break;
       case SCREEN_SPECTRUM:
         drawSpectrum();
+        break;
+      case SCREEN_WEB_SETUP:
+        drawWebSetup();
         break;
       case SCREEN_MODE_INFO:
         drawModeInfo();

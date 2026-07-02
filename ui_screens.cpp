@@ -7,16 +7,16 @@ void setScreen(uint8_t s) {
 }
 
 const uint8_t MENU_OSC_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_WEB, MENU_STATUS, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_BLE_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_WEB, MENU_STATUS, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_REMOTE_ITEMS[] = {
-  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_WEB, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_GATEWAY_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_OUTPUT, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_WEB, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_SPECTRUM, MENU_OUTPUT, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 
 // ============================================================================
@@ -581,6 +581,9 @@ void printMenuLabel(uint8_t item) {
     case MENU_SPECTRUM:
       display.print("Spectrum");
       break;
+    case MENU_WEB:
+      display.print("Web Setup");
+      break;
     case MENU_GO_KEY:
       display.print("GO key: "); display.print(keyName(goKeyCode));
       break;
@@ -672,6 +675,23 @@ void drawRegionSelect() {
   drawCenteredText("click next hold ok", 56, 1);
 
   drawHoldProgress();
+  display.display();
+}
+
+void drawWebSetup() {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  drawCenteredText("WEB SETUP", 0, 1);
+  display.setTextSize(1);
+  if (webApActive()) {
+    drawCenteredText("Join WiFi:", 14, 1);
+    drawCenteredText(getUniqueName().c_str(), 25, 1);
+    drawCenteredText(("pass: " + webApPass()).c_str(), 36, 1);
+  } else {
+    drawCenteredText("On your network:", 25, 1);
+  }
+  drawCenteredText(webUrl().c_str(), 46, 1);
+  drawCenteredText("click: exit", 56, 1);
   display.display();
 }
 
@@ -898,7 +918,7 @@ void updateLoRaLinkScreen() {
       currentScreen == SCREEN_MODE_SELECT || currentScreen == SCREEN_MODE_CONFIRM || currentScreen == SCREEN_OUTPUT_SELECT ||
       currentScreen == SCREEN_PAIR_SELECT || currentScreen == SCREEN_GO_SENT || currentScreen == SCREEN_PANIC_SENT ||
       currentScreen == SCREEN_MODE_INFO || currentScreen == SCREEN_REGION_SELECT ||
-      currentScreen == SCREEN_SPECTRUM) return;
+      currentScreen == SCREEN_SPECTRUM || currentScreen == SCREEN_WEB_SETUP) return;
 
   bool found = loraPeerFound();
   if (!found) {

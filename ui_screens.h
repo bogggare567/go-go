@@ -42,6 +42,7 @@ void drawMenu();
 void drawModeInfo();
 void drawRegionSelect();
 void drawSpectrum();
+void drawWebSetup();
 void drawHoldProgress();
 
 void startBootAnimation();
