@@ -25,6 +25,14 @@ if not os.path.exists(mac_small):
     subprocess.run(["sips", "-Z", "1400", f"{REPO}/img/macbook.png", "--out", mac_small],
                    check=True, capture_output=True)
 
+# Brand font: Unbounded (same as soundkorb.ru), OFL license, latin subset.
+# Embedded as base64 so the SVG renders it on GitHub (no external fetches in <img>).
+brand_font = os.path.join(TMP, "unbounded-latin.woff2")
+if not os.path.exists(brand_font):
+    urllib.request.urlretrieve(
+        "https://fonts.gstatic.com/s/unbounded/v12/Yq6W-LOTXCb04q32xlpwu8ZfvRIkSQ.woff2",
+        brand_font)
+
 src = open(font_path).read()
 FONT = [int(h, 16) for h in re.findall(r"0x([0-9A-Fa-f]{2})", src)]
 W, H = 128, 64
@@ -95,6 +103,7 @@ paths = {k: fb.runs_path() for k, fb in
 
 b64_board = base64.b64encode(open(f"{REPO}/img/heltec.png", "rb").read()).decode()
 b64_mac = base64.b64encode(open(mac_small, "rb").read()).decode()
+b64_font = base64.b64encode(open(brand_font, "rb").read()).decode()
 
 OLED = "#e6f3ff"
 DUR = "12s"
@@ -205,6 +214,11 @@ def qlab_window():
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" font-family="Menlo, Consolas, monospace">
 <style>
+@font-face {{
+  font-family: 'Unbounded';
+  src: url(data:font/woff2;base64,{b64_font}) format('woff2');
+  font-weight: 200 900;
+}}
 .scr {{ opacity: 0; }}
 @keyframes k-boot   {{ 0%,10% {{opacity:1}} 12%,100% {{opacity:0}} }}
 @keyframes k-go     {{ 0%,11% {{opacity:0}} 13%,32% {{opacity:1}} 34%,46% {{opacity:0}} 48%,60% {{opacity:1}} 62%,86% {{opacity:0}} 88%,100% {{opacity:1}} }}
@@ -252,8 +266,8 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" font-fa
 </style>
 
 <rect width="1600" height="800" rx="24" fill="#101826"/>
-<text x="800" y="58" text-anchor="middle" fill="#e8eef7" font-size="34" font-weight="bold">GO-GO &#183; one-button show control</text>
-<text x="800" y="772" text-anchor="middle" fill="#5d6c80" font-size="22">1 click = GO &#160;&#183;&#160; hold 1.4s = PANIC &#160;&#183;&#160; WiFi&#8209;OSC / BLE keyboard / LoRa</text>
+<text x="800" y="58" text-anchor="middle" fill="#e8eef7" font-size="30" font-weight="700" font-family="Unbounded, Menlo, sans-serif">GO-GO &#183; one-button show control</text>
+<text x="800" y="770" text-anchor="middle" fill="#5d6c80" font-size="17" font-weight="400" font-family="Unbounded, Menlo, sans-serif">1 click = GO &#160;&#183;&#160; hold 1.4s = PANIC &#160;&#183;&#160; WiFi&#8209;OSC / BLE keyboard / LoRa</text>
 
 <!-- MacBook -->
 <image href="data:image/png;base64,{b64_mac}" x="480" y="80" width="1060"/>

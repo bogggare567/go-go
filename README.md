@@ -82,6 +82,7 @@ The board reboots into GO-GO automatically. On first boot, pick a mode with the 
 
 - **OSC mode:** on first run the device opens a WiFi access point `GO-GO-XXXXXX` (password `password123`). Connect and enter your WiFi credentials, target IP, port (QLab: `53000`) and OSC addresses (`/go`, `/panic`).
 - **BLE mode:** pair `GO-GO-XXXXXX` as a Bluetooth keyboard. GO types `Space`, PANIC types `Esc` — QLab's defaults.
+  > **Note:** BLE mode is keyboard emulation — keystrokes go to the frontmost app. Keep the QLab window focused during the show, or use OSC mode, which doesn't care about focus.
 - **LoRa pair:** set one board to LoRa RX, the other to LoRa TX — the remote scans, shows discovered receivers with signal strength, hold to pair.
 
 ## Hardware
