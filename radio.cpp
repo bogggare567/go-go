@@ -328,24 +328,78 @@ void retryPendingAck() {
   }
 }
 
+// ============================================================================
+// Region frequency plans
+// ============================================================================
+// EU868 keeps the legacy v15 channel list, so an updated device still hears
+// devices running the old firmware without any reconfiguration.
+static const float CH_EU868[] = {868.0f, 868.1f, 868.3f, 868.5f, 869.0f};
+static const float CH_RU864[] = {864.1f, 864.3f, 864.5f, 864.7f, 864.9f};
+static const float CH_US915[] = {903.9f, 906.5f, 909.1f, 911.7f, 914.2f};
+static const float CH_AU915[] = {915.2f, 916.8f, 918.4f, 920.0f, 921.6f};
+static const float CH_AS923[] = {923.2f, 923.4f, 923.6f, 923.8f, 924.0f};
+static const float CH_IN865[] = {865.0625f, 865.4025f, 865.985f};
+static const float CH_KR920[] = {922.1f, 922.3f, 922.5f, 922.7f, 922.9f};
+static const float CH_CN470[] = {470.3f, 471.9f, 473.5f, 475.1f, 476.7f};
+
+static const RegionPlan REGIONS[] = {
+  {"EU868", CH_EU868, 5, 14},
+  {"RU864", CH_RU864, 5, 14},
+  {"US915", CH_US915, 5, 22},
+  {"AU915", CH_AU915, 5, 22},
+  {"AS923", CH_AS923, 5, 16},
+  {"IN865", CH_IN865, 3, 20},
+  {"KR920", CH_KR920, 5, 14},
+  {"CN470", CH_CN470, 5, 17},  // needs the 470-510 MHz hardware variant
+};
+
+uint8_t regionCount() {
+  return sizeof(REGIONS) / sizeof(REGIONS[0]);
+}
+
+const RegionPlan& regionPlan(uint8_t idx) {
+  return REGIONS[idx < regionCount() ? idx : 0];
+}
+
+const RegionPlan& currentRegion() {
+  return regionPlan(radioCfg.region);
+}
+
+void applyRadioFreq() {
+  const RegionPlan& r = currentRegion();
+  if (radioCfg.region >= regionCount()) radioCfg.region = 0;
+  if (radioCfg.chan >= r.numChannels) radioCfg.chan = 0;
+  if (radioCfg.power > r.maxPower) radioCfg.power = r.maxPower;
+  radioCfg.freq = r.channels[radioCfg.chan] + radioCfg.tuneKhz / 1000.0f;
+}
+
 void cycleFrequency() {
-  static const float freqs[] = {868.0f, 868.1f, 868.3f, 868.5f, 869.0f};
-  const int n = sizeof(freqs) / sizeof(freqs[0]);
-  int idx = 0;
-  for (int i = 0; i < n; i++) {
-    if (fabsf(radioCfg.freq - freqs[i]) < 0.01f) {
-      idx = i;
-      break;
-    }
-  }
-  idx = (idx + 1) % n;
-  radioCfg.freq = freqs[idx];
+  radioCfg.chan = (radioCfg.chan + 1) % currentRegion().numChannels;
+  applyRadioFreq();
+  saveRadioConfig();
+  restartLoRa();
+}
+
+void cycleRegion() {
+  radioCfg.region = (radioCfg.region + 1) % regionCount();
+  radioCfg.chan = 0;
+  radioCfg.tuneKhz = 0;
+  applyRadioFreq();
+  saveRadioConfig();
+  restartLoRa();
+}
+
+void cycleTune() {
+  // 0 -> +25 -> ... -> +100 -> -100 -> ... -> -25 -> 0 (25 kHz steps)
+  radioCfg.tuneKhz += 25;
+  if (radioCfg.tuneKhz > 100) radioCfg.tuneKhz = -100;
+  applyRadioFreq();
   saveRadioConfig();
   restartLoRa();
 }
 
 void cyclePower() {
-  static const int8_t powers[] = {10, 14, 17, 20};
+  static const int8_t powers[] = {10, 14, 17, 20, 22};
   const int n = sizeof(powers) / sizeof(powers[0]);
   int idx = 0;
   for (int i = 0; i < n; i++) {
@@ -354,7 +408,11 @@ void cyclePower() {
       break;
     }
   }
-  idx = (idx + 1) % n;
+  // Next allowed step: skip values above the region cap.
+  for (int step = 0; step < n; step++) {
+    idx = (idx + 1) % n;
+    if (powers[idx] <= currentRegion().maxPower) break;
+  }
   radioCfg.power = powers[idx];
   saveRadioConfig();
   restartLoRa();

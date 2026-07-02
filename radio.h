@@ -6,6 +6,20 @@ bool isLoRaMode();
 bool isLoRaRemote();
 bool isLoRaGateway();
 
+// Region frequency plans. TX and RX must use the same region/channel/tune.
+struct RegionPlan {
+  const char* name;
+  const float* channels;  // MHz
+  uint8_t numChannels;
+  int8_t maxPower;        // dBm cap for the region
+};
+uint8_t regionCount();
+const RegionPlan& regionPlan(uint8_t idx);
+const RegionPlan& currentRegion();
+void applyRadioFreq();    // recompute radioCfg.freq from region/chan/tune
+void cycleRegion();
+void cycleTune();
+
 bool initLoRa();
 void stopLoRa();
 void restartLoRa();

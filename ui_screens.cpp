@@ -13,10 +13,10 @@ const uint8_t MENU_BLE_ITEMS[] = {
   MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_REMOTE_ITEMS[] = {
-  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_LORA_FREQ, MENU_LORA_POWER, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_GATEWAY_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_LORA_FREQ, MENU_LORA_POWER, MENU_OUTPUT, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_OUTPUT, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 
 // ============================================================================
@@ -507,7 +507,7 @@ void drawStatusScreen() {
     display.setCursor(0, y); display.print("Pair: "); display.print(peerTargetString()); y += 8;
     display.setCursor(0, y); display.print("RX: "); display.print(loraPeerFound() ? shortIdString(lastPeerId) : "WAIT"); y += 8;
     display.setCursor(0, y); display.print("RSSI: "); if (lastPeerId) display.print(lastPeerRssi); else display.print("--"); y += 8;
-    display.setCursor(0, y); display.print("CH: "); display.print(radioCfg.freq, 1); display.print("MHz"); y += 8;
+    display.setCursor(0, y); display.print("CH: "); display.print(currentRegion().name); display.print(" "); display.print(radioCfg.freq, 2); y += 8;
     display.setCursor(0, y); display.print("ID: "); display.print(shortIdString(deviceId));
   } else if (isLoRaGateway()) {
     display.setCursor(0, y); display.print("Radio: "); display.print(loraInitialized ? "OK" : "FAIL"); y += 8;
@@ -562,10 +562,18 @@ void printMenuLabel(uint8_t item) {
       display.print("Status");
       break;
     case MENU_LORA_FREQ:
-      display.print("Freq: "); display.print(radioCfg.freq, 1);
+      display.print("Freq: "); display.print(radioCfg.freq, 2);
       break;
     case MENU_LORA_POWER:
       display.print("Power: "); display.print(radioCfg.power); display.print("dBm");
+      break;
+    case MENU_REGION:
+      display.print("Region: "); display.print(currentRegion().name);
+      break;
+    case MENU_TUNE:
+      display.print("Tune: ");
+      if (radioCfg.tuneKhz >= 0) display.print("+");
+      display.print(radioCfg.tuneKhz); display.print("kHz");
       break;
     case MENU_PAIR:
       display.print("Pair RX");

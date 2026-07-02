@@ -379,6 +379,16 @@ void handleMenuSelect() {
       setScreen(SCREEN_MENU);
       break;
 
+    case MENU_REGION:
+      cycleRegion();
+      setScreen(SCREEN_MENU);
+      break;
+
+    case MENU_TUNE:
+      cycleTune();
+      setScreen(SCREEN_MENU);
+      break;
+
     case MENU_PAIR:
       selectedPeerIndex = 0;
       setScreen(SCREEN_PAIR_SELECT);

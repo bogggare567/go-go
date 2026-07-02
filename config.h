@@ -78,12 +78,15 @@ struct OscConfig {
 };
 
 struct RadioConfig {
-  float freq;
+  float freq;        // computed: region channel + fine-tune offset
   float bw;
   uint8_t sf;
   uint8_t cr;
   int8_t power;
   uint16_t counter;
+  uint8_t region;    // index into the region plan table (radio.cpp)
+  uint8_t chan;      // channel index inside the region plan
+  int16_t tuneKhz;   // fine-tune offset, ±100 kHz in 25 kHz steps
 };
 
 enum OutputMode : uint8_t {
@@ -128,6 +131,8 @@ enum : uint8_t {
   MENU_STATUS,
   MENU_LORA_FREQ,
   MENU_LORA_POWER,
+  MENU_REGION,
+  MENU_TUNE,
   MENU_PAIR,
   MENU_OUTPUT,
   MENU_RESET,

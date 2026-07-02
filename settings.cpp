@@ -93,7 +93,24 @@ void loadRadioConfig() {
   radioCfg.cr = prefs.getUChar("cr", 5);
   radioCfg.power = prefs.getChar("pwr", 14);
   radioCfg.counter = prefs.getUShort("cnt", 0);
+  radioCfg.region = prefs.getUChar("region", 0);
+  radioCfg.chan = prefs.getUChar("chan", 255);
+  radioCfg.tuneKhz = prefs.getShort("tune", 0);
   prefs.end();
+
+  if (radioCfg.chan == 255) {
+    // Migration from v15 configs that stored a bare frequency:
+    // pick the nearest EU868 channel so an updated device keeps its link.
+    radioCfg.region = 0;
+    radioCfg.tuneKhz = 0;
+    const RegionPlan& r = regionPlan(0);
+    uint8_t best = 0;
+    for (uint8_t i = 1; i < r.numChannels; i++) {
+      if (fabsf(radioCfg.freq - r.channels[i]) < fabsf(radioCfg.freq - r.channels[best])) best = i;
+    }
+    radioCfg.chan = best;
+  }
+  applyRadioFreq();
 
   // Reserve a counter block once per boot so sendPacket never writes NVS.
   // The counter jumps forward after a reboot; receivers only need it to be
@@ -112,5 +129,8 @@ void saveRadioConfig() {
   prefs.putUChar("cr", radioCfg.cr);
   prefs.putChar("pwr", radioCfg.power);
   prefs.putUShort("cnt", radioCfg.counter);
+  prefs.putUChar("region", radioCfg.region);
+  prefs.putUChar("chan", radioCfg.chan);
+  prefs.putShort("tune", radioCfg.tuneKhz);
   prefs.end();
 }
