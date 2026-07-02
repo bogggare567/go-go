@@ -670,7 +670,8 @@ void drawRegionSelect() {
   char buf[24];
   snprintf(buf, sizeof(buf), "%.1f-%.1f MHz", r.scanFrom, r.scanTo);
   drawCenteredText(buf, 34, 1);
-  snprintf(buf, sizeof(buf), "%d ch, %d dBm", r.numChannels, r.maxPower);
+  int nch = (int)((r.scanTo - r.scanFrom - 0.2f) / 0.2f) + 1;
+  snprintf(buf, sizeof(buf), "%d ch, %d dBm", nch, r.maxPower);
   drawCenteredText(buf, 45, 1);
   drawCenteredText("click next hold ok", 56, 1);
 

@@ -405,20 +405,22 @@ const RegionPlan& currentRegion() {
 void applyRadioFreq() {
   if (radioCfg.region >= regionCount()) radioCfg.region = 0;
   const RegionPlan& r = currentRegion();
-  if (radioCfg.chan >= r.numChannels) radioCfg.chan = 0;
+  // Manual channel = a bin of the full 0.2 MHz grid (v16.7); the curated
+  // channels[] list remains only as boot candidates for the auto master.
+  if (radioCfg.chan >= gridCount()) radioCfg.chan = 0;
   // Always run at the region's legal maximum (owner request: max safe power).
   radioCfg.power = r.maxPower;
-  radioCfg.freq = r.channels[radioCfg.chan];
+  radioCfg.freq = gridFreq(radioCfg.chan);
 }
 
 void cycleFrequency() {
-  // Auto -> ch0 -> ch1 -> ... -> last -> Auto. Picking a fixed channel
-  // disables all hopping/searching (manual override, owner requirement).
+  // Auto -> bin0 -> bin1 -> ... -> last -> Auto over the FULL grid. Picking
+  // a fixed channel disables all hopping/searching (manual override).
   if (freqAuto) {
     freqAuto = false;
     radioCfg.chan = 0;
     applyRadioFreq();
-  } else if (radioCfg.chan + 1 < currentRegion().numChannels) {
+  } else if (radioCfg.chan + 1 < gridCount()) {
     radioCfg.chan++;
     applyRadioFreq();
   } else {
@@ -576,7 +578,7 @@ static void gatewayAutoStep() {
   }
 }
 
-static uint8_t binIndexOf(float freq) {
+uint8_t gridIndexOf(float freq) {
   const RegionPlan& r = currentRegion();
   int idx = (int)((freq - r.scanFrom - 0.1f) / 0.2f + 0.5f);
   if (idx < 0) idx = 0;
@@ -607,7 +609,7 @@ static void slaveAutoStep() {
     if (lastLinkSeen != 0 && now - lastLinkSeen < 6000) return;
     searchActive = true;
     searchDwelling = false;
-    searchIdx = binIndexOf(radioCfg.freq);
+    searchIdx = gridIndexOf(radioCfg.freq);
   }
 
   static unsigned long searchPauseUntil = 0;
@@ -621,7 +623,7 @@ static void slaveAutoStep() {
     searchDwelling = false;
     searchIdx = (searchIdx + 1) % gridCount();
     // Full pass done without an answer: breathe briefly, then retry.
-    if (searchIdx == binIndexOf(radioCfg.freq)) searchPauseUntil = now + 700;
+    if (searchIdx == gridIndexOf(radioCfg.freq)) searchPauseUntil = now + 700;
     return;
   }
 

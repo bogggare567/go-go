@@ -30,6 +30,7 @@ void spectrumSweepStep();
 // TX (slave) finds its master by CAD-scanning the grid for beacons.
 uint8_t gridCount();
 float gridFreq(uint8_t idx);
+uint8_t gridIndexOf(float freq);
 void radioAutoStep();     // call from loop(); dispatches master/slave logic
 float searchStatusFreq(); // frequency currently being probed by the slave scan
 bool slaveSearching();

@@ -53,6 +53,8 @@ canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--li
 
 <div class="page" id="p1" style="display:none">
 <div class="card">
+<label>WiFi network (for OSC and updates)</label><input id="ssid" placeholder="network name">
+<label>WiFi password</label><input id="wpass" type="password" placeholder="leave empty to keep current">
 <label>Mode</label><select id="mode">
 <option value="0">OSC / WiFi</option><option value="1">BLE keyboard</option>
 <option value="2">LoRa TX (remote)</option><option value="3">LoRa RX (gateway)</option></select>
@@ -81,7 +83,13 @@ canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--li
 
 <div class="page" id="p3" style="display:none">
 <div class="card">
-<label>Firmware file (.bin)</label><input type="file" id="fw">
+<label>Online update</label>
+<div id="upline" class="warn">Needs internet through the venue WiFi.</div>
+<button class="btn ghost" onclick="checkUpd()">Check for updates</button>
+<button class="btn" id="instBtn" style="display:none" onclick="installUpd()">Install update</button>
+</div>
+<div class="card">
+<label>Manual firmware file (.bin)</label><input type="file" id="fw">
 <button class="btn" onclick="ota()">Upload &amp; flash</button>
 <div class="warn" id="otamsg"></div>
 <button class="btn ghost" onclick="act('reboot')">Reboot device</button>
@@ -111,8 +119,25 @@ r.value=cfg.region;fillChan();
 let ks=cfg.keys.map(k=>'<option value="'+k.c+'">'+k.n+'</option>').join('');
 document.getElementById('gokey').innerHTML=ks;document.getElementById('pankey').innerHTML=ks;
 for(let[i,v]of[['mode',cfg.mode],['out',cfg.out],['gokey',cfg.goKey],['pankey',cfg.panicKey],
-['oscIp',cfg.oscIp],['oscPort',cfg.oscPort],['goAddr',cfg.go],['panAddr',cfg.panic]])
+['oscIp',cfg.oscIp],['oscPort',cfg.oscPort],['goAddr',cfg.go],['panAddr',cfg.panic],['ssid',cfg.ssid]])
 document.getElementById(i).value=v;}
+let updUrl='';
+async function checkUpd(){document.getElementById('upline').textContent='Checking…';
+try{let r=await(await fetch('/api/otacheck')).json();
+if(r.err){document.getElementById('upline').textContent=r.err;return;}
+if(r.latest&&r.latest!=r.cur){updUrl=r.url;
+document.getElementById('upline').innerHTML='<b class="ok">Update available: '+r.latest+'</b> (installed '+r.cur+')';
+document.getElementById('instBtn').style.display='';
+toast('Update available: '+r.latest);}
+else document.getElementById('upline').textContent='Up to date ('+r.cur+')';}
+catch(e){document.getElementById('upline').textContent='Check failed';}}
+async function installUpd(){if(!updUrl)return;
+document.getElementById('upline').textContent='Downloading & flashing… do not power off';
+let f=new FormData();f.append('url',updUrl);
+try{let r=await(await fetch('/api/otainstall',{method:'POST',body:f})).json();
+document.getElementById('upline').textContent=r.ok?'Done — rebooting':'FAILED: '+(r.err||'');}
+catch(e){document.getElementById('upline').textContent='Device rebooting…';}}
+setTimeout(checkUpd,1500);
 function fillChan(){let c=document.getElementById('chan');
 c.innerHTML='<option value="auto">Auto (RX picks, TX follows)</option>'+
 cfg.channels.map((f,i)=>'<option value="'+i+'">'+f.toFixed(2)+' MHz</option>').join('');
@@ -122,6 +147,8 @@ async function saveCfg(){let f=new FormData();
 for(let i of['mode','out','region','gokey','pankey','oscIp','oscPort','goAddr','panAddr'])
 f.append(i,document.getElementById(i).value);
 f.append('chan',document.getElementById('chan').value);
+let ns=document.getElementById('ssid').value,np=document.getElementById('wpass').value;
+if(ns!=cfg.ssid||np){f.append('ssid',ns);f.append('wpass',np);}
 let r=await(await fetch('/api/config',{method:'POST',body:f})).json();
 toast(r.reboot?'Saved — rebooting…':'Saved');}
 async function spec(){specOn=!specOn;

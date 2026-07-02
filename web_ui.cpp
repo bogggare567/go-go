@@ -2,11 +2,18 @@
 #include "gogo.h"
 #include <WebServer.h>
 #include <Update.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "web_html.h"
 
 static WebServer server(80);
 static bool serverStarted = false;
 static bool apRaised = false;
+static bool webPausedBle = false;
+
+// Online update manifest (lives in the GitHub repo, fetched over HTTPS)
+static const char* OTA_MANIFEST_URL =
+  "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/version.json";
 
 bool webApActive() { return apRaised; }
 
@@ -69,16 +76,16 @@ static void handleConfigGet() {
   j += "\"panic\":\"" + jsonEscape(config.panic_address) + "\",";
   j += "\"goKey\":" + String((int)goKeyCode) + ",";
   j += "\"panicKey\":" + String((int)panicKeyCode) + ",";
+  j += "\"ssid\":\"" + jsonEscape(wifiSsid) + "\",";
   j += "\"regions\":[";
   for (uint8_t i = 0; i < regionCount(); i++) {
     if (i) j += ",";
     j += "\"" + String(regionPlan(i).name) + "\"";
   }
   j += "],\"channels\":[";
-  const RegionPlan& r = currentRegion();
-  for (uint8_t i = 0; i < r.numChannels; i++) {
+  for (uint8_t i = 0; i < gridCount(); i++) {
     if (i) j += ",";
-    j += String(r.channels[i], 4);
+    j += String(gridFreq(i), 4);
   }
   j += "],\"keys\":[";
   for (int i = 0; i < keyOptionCount(); i++) {
@@ -103,6 +110,14 @@ static void handleConfigPost() {
   if (server.hasArg("gokey")) goKeyCode = (uint8_t)server.arg("gokey").toInt();
   if (server.hasArg("pankey")) panicKeyCode = (uint8_t)server.arg("pankey").toInt();
   saveKeymap();
+
+  // WiFi network: sent only when the user actually changed it (see the JS).
+  if (server.hasArg("ssid")) {
+    safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
+    safeCopy(wifiPass, server.arg("wpass").c_str(), sizeof(wifiPass));
+    saveWifiCreds();
+    reboot = true;
+  }
 
   // Structural settings: applied via reboot for a clean re-init.
   uint8_t newMode = (uint8_t)server.arg("mode").toInt();
@@ -175,6 +190,80 @@ static void handleOtaUpload() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Online update: check a version manifest in the GitHub repo and stream the
+// binary straight into the OTA partition. Requires the venue WiFi to have
+// internet access; certificate pinning is skipped (setInsecure) on purpose.
+// ---------------------------------------------------------------------------
+static String jsonField(const String& src, const char* key) {
+  String pat = String("\"") + key + "\":\"";
+  int a = src.indexOf(pat);
+  if (a < 0) return "";
+  a += pat.length();
+  int b = src.indexOf('"', a);
+  if (b < 0) return "";
+  return src.substring(a, b);
+}
+
+static void handleOtaCheck() {
+  if (WiFi.status() != WL_CONNECTED) {
+    server.send(200, "application/json", "{\"err\":\"no internet (STA not connected)\"}");
+    return;
+  }
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.setConnectTimeout(6000);
+  http.setTimeout(8000);
+  http.begin(client, OTA_MANIFEST_URL);
+  int code = http.GET();
+  if (code != 200) {
+    http.end();
+    server.send(200, "application/json", "{\"err\":\"manifest fetch failed\"}");
+    return;
+  }
+  String body = http.getString();
+  http.end();
+  String latest = jsonField(body, "version");
+  String url = jsonField(body, "url");
+  String j = "{\"cur\":\"" GOGO_VERSION "\",\"latest\":\"" + latest +
+             "\",\"url\":\"" + url + "\"}";
+  server.send(200, "application/json", j);
+}
+
+static void handleOtaInstall() {
+  String url = server.arg("url");
+  if (WiFi.status() != WL_CONNECTED || !url.startsWith("https://")) {
+    server.send(400, "application/json", "{\"err\":\"bad url or no internet\"}");
+    return;
+  }
+  showSimpleMessage("Updating...", "do not power off", 100);
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.setConnectTimeout(8000);
+  http.setTimeout(30000);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.begin(client, url);
+  int code = http.GET();
+  int len = http.getSize();
+  if (code != 200 || len <= 0 || !Update.begin(len)) {
+    http.end();
+    server.send(500, "application/json", "{\"err\":\"download failed\"}");
+    return;
+  }
+  size_t written = Update.writeStream(http.getStream());
+  http.end();
+  bool ok = (written == (size_t)len) && Update.end(true);
+  server.send(ok ? 200 : 500, "application/json",
+              ok ? "{\"ok\":true}" : "{\"err\":\"flash failed\"}");
+  if (ok) {
+    showSimpleMessage("Updated!", "rebooting...", 800);
+    ESP.restart();
+  }
+}
+
 static void startServer() {
   server.on("/", HTTP_GET, []() {
     server.send_P(200, "text/html", WEB_PAGE);
@@ -186,6 +275,8 @@ static void startServer() {
   server.on("/api/spectrum", HTTP_POST, handleSpectrumPost);
   server.on("/api/go", HTTP_POST, []() { performGO(); server.send(200, "application/json", "{}"); });
   server.on("/api/panic", HTTP_POST, []() { performPanic(); server.send(200, "application/json", "{}"); });
+  server.on("/api/otacheck", HTTP_GET, handleOtaCheck);
+  server.on("/api/otainstall", HTTP_POST, handleOtaInstall);
   server.on("/api/reboot", HTTP_POST, []() {
     server.send(200, "application/json", "{}");
     delay(300);
@@ -205,6 +296,12 @@ static void startServer() {
 void startWebSetup() {
   // In OSC modes the STA link already carries the UI; otherwise raise an AP.
   if (WiFi.status() != WL_CONNECTED) {
+    // BLE and WiFi share the single 2.4 GHz radio on the ESP32-S3 and fight
+    // for airtime. Setup is a pause anyway: suspend BLE while the AP is up.
+    if (bleStarted) {
+      stopBLEMode();
+      webPausedBle = true;
+    }
     wifi_mode_t m = WiFi.getMode();
     WiFi.mode(m == WIFI_OFF ? WIFI_AP : (wifi_mode_t)(m | WIFI_AP));
     WiFi.softAP(getUniqueName().c_str(), webApPass().c_str());
@@ -221,6 +318,10 @@ void stopWebSetup() {
         !(controlMode == MODE_LORA_GATEWAY && outputWantsOsc())) {
       WiFi.mode(WIFI_OFF);
     }
+  }
+  if (webPausedBle) {
+    webPausedBle = false;
+    startBLEMode();
   }
 }
 

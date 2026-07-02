@@ -1,5 +1,5 @@
 // GO-GO — shared types, pins, constants and global state declarations.
-#define GOGO_VERSION "v16.6"
+#define GOGO_VERSION "v16.7"
 // Split 1:1 from the v15 monolith; behavior must stay identical.
 #pragma once
 
@@ -11,7 +11,6 @@
 #include <Preferences.h>
 
 #include <WiFi.h>
-#include <WiFiManager.h>
 #include <WiFiUdp.h>
 #include <OSCMessage.h>
 
@@ -215,6 +214,8 @@ extern SX1262 lora;
 
 extern OscConfig config;
 extern RadioConfig radioCfg;
+extern char wifiSsid[33];      // venue network; set via the web panel
+extern char wifiPass[65];
 
 extern uint8_t gatewayOutputMode;
 extern uint8_t selectedOutputMode;

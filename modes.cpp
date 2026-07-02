@@ -78,9 +78,6 @@ void factoryReset() {
   drawCenteredText("Erasing config", 40, 1);
   display.display();
 
-  WiFiManager wm;
-  wm.resetSettings();
-
   prefs.begin("osc", false); prefs.clear(); prefs.end();
   prefs.begin("system", false); prefs.clear(); prefs.end();
   prefs.begin("radio", false); prefs.clear(); prefs.end();
@@ -143,7 +140,8 @@ void startRxNow(uint8_t out) {
   bool ready = false;
   if (out == OUT_OSC) {
     // Explicit first-time setup path for RX->OSC:
-    // 1) start LoRa receiver, 2) try saved WiFi briefly, 3) if missing, open WiFiManager AP.
+    // 1) start LoRa receiver, 2) try saved WiFi briefly, 3) if missing,
+    // open the web panel on our own AP.
     stopBLEMode();
     bool radioOk = initLoRa();
     WiFi.mode(WIFI_STA);
@@ -151,6 +149,7 @@ void startRxNow(uint8_t out) {
       bool quickConnect = connectWiFiWithDisplay(false);
       if (!quickConnect) {
         configureWiFi(false);
+        return;  // user is in the web panel now
       }
     }
     gatewayWifiReady = (WiFi.status() == WL_CONNECTED);
@@ -222,6 +221,7 @@ void restartIntoRxOutput(uint8_t out) {
       bool quickConnect = connectWiFiWithDisplay(false);
       if (!quickConnect) {
         configureWiFi(false);
+        return;  // user is in the web panel now
       }
     }
     gatewayWifiReady = (WiFi.status() == WL_CONNECTED);
@@ -388,8 +388,7 @@ void handleMenuSelect() {
 
     case MENU_SETUP:
       if (controlMode == MODE_OSC_WIFI || (controlMode == MODE_LORA_GATEWAY && outputWantsOsc())) {
-        configureWiFi(false);
-        setScreen(SCREEN_GO);
+        configureWiFi(false);  // opens the web panel screen
       } else {
         setScreen(SCREEN_MODE_INFO);
       }

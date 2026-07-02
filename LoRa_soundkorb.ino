@@ -26,6 +26,8 @@ SX1262 lora = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUS
 // ============================================================================
 OscConfig config;
 RadioConfig radioCfg;
+char wifiSsid[33] = "";
+char wifiPass[65] = "";
 
 uint8_t gatewayOutputMode = OUT_BLE;
 uint8_t selectedOutputMode = OUT_BLE;

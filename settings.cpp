@@ -23,7 +23,11 @@ void loadOscConfig() {
   String addr = prefs.getString("addr", "/go");
   String panic = prefs.getString("panic", "/panic");
   int port = prefs.getInt("port", 53000);
+  String ssid = prefs.getString("ssid", "");
+  String wpass = prefs.getString("wpass", "");
   prefs.end();
+  safeCopy(wifiSsid, ssid.c_str(), sizeof(wifiSsid));
+  safeCopy(wifiPass, wpass.c_str(), sizeof(wifiPass));
 
   safeCopy(config.osc_ip, ip.c_str(), sizeof(config.osc_ip));
   safeCopy(config.osc_address, addr.c_str(), sizeof(config.osc_address));
@@ -37,6 +41,13 @@ void saveOscConfig() {
   prefs.putString("addr", config.osc_address);
   prefs.putString("panic", config.panic_address);
   prefs.putInt("port", config.osc_port);
+  prefs.end();
+}
+
+void saveWifiCreds() {
+  prefs.begin("osc", false);
+  prefs.putString("ssid", wifiSsid);
+  prefs.putString("wpass", wifiPass);
   prefs.end();
 }
 
@@ -109,18 +120,10 @@ void loadRadioConfig() {
   freqAuto = prefs.getBool("fauto", true);
   prefs.end();
 
-  if (radioCfg.chan == 255) {
-    // Migration from v15 configs that stored a bare frequency:
-    // pick the nearest EU868 channel so an updated device keeps its link.
-    radioCfg.region = 0;
-    radioCfg.tuneKhz = 0;
-    const RegionPlan& r = regionPlan(0);
-    uint8_t best = 0;
-    for (uint8_t i = 1; i < r.numChannels; i++) {
-      if (fabsf(radioCfg.freq - r.channels[i]) < fabsf(radioCfg.freq - r.channels[best])) best = i;
-    }
-    radioCfg.chan = best;
-  }
+  // v16.7: a manual channel is a bin of the full grid. Older configs stored
+  // an index into the short curated list (or none at all) - recomputing the
+  // bin from the saved frequency migrates every old format correctly.
+  radioCfg.chan = gridIndexOf(radioCfg.freq);
   applyRadioFreq();
 
   // Reserve a counter block once per boot so sendPacket never writes NVS.
