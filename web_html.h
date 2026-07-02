@@ -6,40 +6,41 @@ const char WEB_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GO-GO</title>
+<link rel="stylesheet" href="/font.css">
 <style>
-:root{--bg:#0f1622;--card:#171d27;--line:#2b3950;--tx:#e8eef7;--mut:#8fa1b8;--acc:#39d353;--red:#e5484d;--sel:#f2c53d}
+:root{--bg:#0b0e12;--card:#12161c;--line:rgba(255,255,255,.09);--tx:#f4f2ef;--mut:#88929c;--acc:#5cb2a2;--ok:#8ec9a8;--red:#e0564f;--sel:#d4b896}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,'Segoe UI',Roboto,sans-serif;padding:16px;max-width:760px;margin:0 auto}
-h1{font-size:22px;letter-spacing:2px;margin:4px 0 2px}
+h1{font-family:'Unbounded',system-ui,sans-serif;font-weight:600;font-size:20px;letter-spacing:1px;margin:4px 0 2px}
 h1 b{color:var(--acc)}
 .sub{color:var(--mut);font-size:12px;margin-bottom:14px}
 .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-.tabs button{background:var(--card);border:1px solid var(--line);color:var(--mut);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px}
+.tabs button{font-family:'Unbounded',system-ui,sans-serif;background:var(--card);border:1px solid var(--line);color:var(--mut);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:12px;letter-spacing:.5px}
 .tabs button.on{color:var(--tx);border-color:var(--acc)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
-.kv div{padding:4px 0;border-bottom:1px solid #1e2735;font-size:14px}
+.kv div{padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px}
 .kv span{color:var(--mut);display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px}
 label{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px}
 input,select{width:100%;background:#0c1320;border:1px solid var(--line);color:var(--tx);padding:8px 10px;border-radius:8px;font-size:15px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.btn{background:var(--acc);color:#08240f;border:0;padding:10px 18px;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;margin-top:14px}
+.btn{font-family:'Unbounded',system-ui,sans-serif;background:var(--acc);color:#0b0e12;border:0;padding:11px 18px;border-radius:10px;font-weight:500;font-size:13px;letter-spacing:.5px;cursor:pointer;margin-top:14px}
 .btn.red{background:var(--red);color:#fff}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--tx)}
 .bigbtns{display:flex;gap:12px}
 .bigbtns .btn{flex:1;padding:16px;font-size:20px;margin-top:0}
 canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--line)}
 .warn{color:var(--sel);font-size:13px;margin:8px 0}
-h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin:0 0 4px}
+h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--acc);margin:0 0 4px}
 .tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .tgrid .btn{margin:0;padding:12px 4px;font-size:14px}
-.cue{display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid #1e2735;font-size:14px}
+.cue{display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px}
 .cue .num{color:var(--sel);min-width:34px;font-family:monospace}
 .cue .nm{flex:1}
 .cue button{background:#0c1320;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:4px 10px;cursor:pointer}
 .gobig{width:100%;padding:26px;font-size:34px;letter-spacing:4px}
-.ok{color:var(--acc)} .bad{color:var(--red)}
-#msg{position:fixed;top:10px;right:10px;background:var(--acc);color:#08240f;padding:8px 14px;border-radius:8px;display:none;font-weight:600}
+.ok{color:var(--ok)} .bad{color:var(--red)}
+#msg{position:fixed;top:10px;right:10px;background:var(--acc);color:#0b0e12;padding:8px 14px;border-radius:10px;display:none;font-weight:600}
 </style></head><body>
 <h1>GO<b>-</b>GO</h1>
 <div class="sub" id="devline">&nbsp;</div>

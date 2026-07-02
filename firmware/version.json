@@ -1,5 +1,5 @@
 {
-  "version": "v16.11",
+  "version": "v16.12",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "Fix crash-reboot after selecting OSC mode (WiFi power-save Cache error)"
+  "notes": "Reliable WiFi join (3 retries), soundkorb brand styling with embedded Unbounded"
 }

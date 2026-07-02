@@ -7,18 +7,19 @@ const char WIFI_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GO-GO WiFi</title>
+<link rel="stylesheet" href="/font.css">
 <style>
-:root{--bg:#0f1622;--card:#171d27;--line:#2b3950;--tx:#e8eef7;--mut:#8fa1b8;--acc:#39d353;--sel:#f2c53d;--red:#e5484d}
+:root{--bg:#0b0e12;--card:#12161c;--line:rgba(255,255,255,.09);--tx:#f4f2ef;--mut:#88929c;--acc:#5cb2a2;--ok:#8ec9a8;--sel:#d4b896;--red:#e0564f}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,'Segoe UI',Roboto,sans-serif;padding:16px;max-width:480px;margin:0 auto}
-h1{font-size:22px;letter-spacing:2px;margin:4px 0 2px}
+h1{font-family:'Unbounded',system-ui,sans-serif;font-weight:600;font-size:20px;letter-spacing:1px;margin:4px 0 2px}
 h1 b{color:var(--acc)}
 .sub{color:var(--mut);font-size:12px;margin-bottom:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin:0 0 8px}
+h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--acc);margin:0 0 8px}
 label{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px}
 input{width:100%;background:#0c1320;border:1px solid var(--line);color:var(--tx);padding:10px;border-radius:8px;font-size:16px}
-.btn{background:var(--acc);color:#08240f;border:0;padding:12px 18px;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;margin-top:14px;width:100%}
+.btn{font-family:'Unbounded',system-ui,sans-serif;background:var(--acc);color:#0b0e12;border:0;padding:13px 18px;border-radius:10px;font-weight:500;font-size:14px;letter-spacing:.5px;cursor:pointer;margin-top:14px;width:100%}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--tx)}
 .net{display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid #1e2735;cursor:pointer;font-size:15px}
 .net:active{background:#1e2735}
@@ -28,7 +29,7 @@ input{width:100%;background:#0c1320;border:1px solid var(--line);color:var(--tx)
 .showp{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--mut);font-size:14px}
 .showp input{width:auto}
 #st{margin-top:12px;font-size:14px;color:var(--sel)}
-.ok{color:var(--acc)} .bad{color:var(--red)}
+.ok{color:var(--ok)} .bad{color:var(--red)}
 </style></head><body>
 <h1>GO<b>-</b>GO</h1>
 <div class="sub">WiFi Setup — connect the device to your network</div>
@@ -77,6 +78,7 @@ await fetch('/api/join',{method:'POST',body:f});
 clearInterval(timer);timer=setInterval(poll,1000);}
 async function poll(){try{
 let r=await(await fetch('/api/joinstatus')).json();
+if(r.state=='connecting')document.getElementById('st').textContent='Connecting… attempt '+r.try+'/3';
 if(r.state=='ok'){clearInterval(timer);
 document.getElementById('st').innerHTML='<b class="ok">Connected!</b> Control panel: <b>http://'+r.ip+
 '</b><br>The device reboots by itself in a few seconds — rejoin your network and open that address.';}

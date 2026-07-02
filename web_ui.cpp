@@ -7,6 +7,7 @@
 #include <DNSServer.h>
 #include "web_html.h"
 #include "web_html_wifi.h"
+#include "web_font.h"
 
 static WebServer server(80);
 static DNSServer dns;   // captive portal: every AP lookup resolves to us
@@ -312,6 +313,8 @@ static void handleScan() {
 
 static unsigned long joinStart = 0;
 static unsigned long joinOkAt = 0;
+static uint8_t joinTries = 0;
+static bool joinFailed = false;
 
 static void handleJoin() {
   safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
@@ -319,20 +322,27 @@ static void handleJoin() {
   saveWifiCreds();
   WiFi.mode(WIFI_AP_STA);  // keep our AP alive while trying the venue network
   WiFi.setSleep(false);
+  WiFi.disconnect();
+  delay(60);
   WiFi.begin(wifiSsid, wifiPass);
   joinAttempt = true;
+  joinFailed = false;
+  joinTries = 1;
   joinStart = millis();
   joinOkAt = 0;
   server.send(200, "application/json", "{}");
 }
 
 static void handleJoinStatus() {
+  // "fail" only after the retry manager in webLoop() gives up: with the AP
+  // parked on another channel the FIRST station scan often misses the SSID,
+  // so a single WL_NO_SSID_AVAIL must not be treated as a real failure.
   String state = "connecting";
-  if (!joinAttempt) state = "idle";
+  if (!joinAttempt && !joinFailed) state = "idle";
   else if (WiFi.status() == WL_CONNECTED) state = "ok";
-  else if (WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_NO_SSID_AVAIL ||
-           millis() - joinStart > 20000) state = "fail";
-  String j = "{\"state\":\"" + state + "\",\"ip\":\"" +
+  else if (joinFailed) state = "fail";
+  String j = "{\"state\":\"" + state + "\",\"try\":" + String((int)joinTries) +
+             ",\"ip\":\"" +
              (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\"}";
   server.send(200, "application/json", j);
 }
@@ -409,6 +419,10 @@ static void startServer() {
   server.on("/api/spectrum", HTTP_POST, handleSpectrumPost);
   server.on("/api/go", HTTP_POST, []() { performGO(); server.send(200, "application/json", "{}"); });
   server.on("/api/panic", HTTP_POST, []() { performPanic(); server.send(200, "application/json", "{}"); });
+  server.on("/font.css", HTTP_GET, []() {
+    server.sendHeader("Cache-Control", "max-age=86400");
+    server.send_P(200, "text/css", FONT_CSS);
+  });
   server.on("/api/scan", HTTP_GET, handleScan);
   server.on("/api/scan", HTTP_POST, handleScan);
   server.on("/api/join", HTTP_POST, handleJoin);
@@ -497,6 +511,25 @@ void webLoop() {
   if (!serverStarted && (WiFi.status() == WL_CONNECTED || apRaised)) startServer();
   if (apRaised) dns.processNextRequest();
   if (serverStarted) server.handleClient();
+
+  // Join manager: up to 3 attempts of 10 s each before declaring failure.
+  if (joinAttempt && WiFi.status() != WL_CONNECTED) {
+    wl_status_t st = WiFi.status();
+    bool windowOver = millis() - joinStart > 10000;
+    bool hardFail = (st == WL_CONNECT_FAILED);
+    if (windowOver || hardFail) {
+      if (joinTries < 3) {
+        joinTries++;
+        WiFi.disconnect();
+        delay(60);
+        WiFi.begin(wifiSsid, wifiPass);
+        joinStart = millis();
+      } else {
+        joinAttempt = false;
+        joinFailed = true;
+      }
+    }
+  }
 
   // Onboarding finish is autonomous: channel switching may kick the phone
   // off our AP, so the reboot must not depend on the page's JavaScript.
