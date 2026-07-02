@@ -4,3 +4,4 @@ build-deploy.command
 push-to-github.command
 build/
 docs/.demo_cache/
+*.bak
