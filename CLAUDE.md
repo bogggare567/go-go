@@ -14,6 +14,9 @@ LoRa TX (пульт), LoRa RX (гейтвей → OSC или BLE).
 
 ## Правила работы
 
+- **В коммитах и PR — никаких `Co-Authored-By: Claude` и другой атрибуции.**
+  Владелец просил не появляться в соавторах; история уже переписана.
+
 - **Каждую правку прошивки проверять компиляцией** (arduino-cli 1.5.1 установлен, brew):
   ```
   arduino-cli compile --fqbn "Heltec-esp32:esp32:heltec_wifi_lora_32_V3:UploadSpeed=921600,CPUFreq=240,DebugLevel=none,LoopCore=1,EventsCore=1,LORAWAN_REGION=0,LoRaWanDebugLevel=0,LORAWAN_PREAMBLE_LENGTH=0,SLOW_CLK_TPYE=0" .

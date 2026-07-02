@@ -279,7 +279,7 @@ void performGO() {
     sendOSC(config.osc_address);
     ackOk = true;
   } else if (controlMode == MODE_BLE_HID) {
-    sendKeyPress(0x2C); // SPACE
+    sendKeyPress(goKeyCode);
     ackOk = true;
   } else if (isLoRaRemote()) {
     // Command path must be fast: fire-and-forget.
@@ -309,7 +309,7 @@ void performPanic() {
     sendOSC(config.panic_address);
     ackOk = true;
   } else if (controlMode == MODE_BLE_HID) {
-    sendKeyPress(0x29); // ESC
+    sendKeyPress(panicKeyCode);
     ackOk = true;
   } else if (isLoRaRemote()) {
     // Command path must be fast: fire-and-forget.
@@ -386,6 +386,16 @@ void handleMenuSelect() {
 
     case MENU_TUNE:
       cycleTune();
+      setScreen(SCREEN_MENU);
+      break;
+
+    case MENU_GO_KEY:
+      cycleGoKey();
+      setScreen(SCREEN_MENU);
+      break;
+
+    case MENU_PANIC_KEY:
+      cyclePanicKey();
       setScreen(SCREEN_MENU);
       break;
 

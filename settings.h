@@ -12,3 +12,4 @@ void loadRadioConfig();
 void saveRadioConfig();
 void savePairedRxId(uint32_t id);
 void loadPairedRxId();
+void saveKeymap();

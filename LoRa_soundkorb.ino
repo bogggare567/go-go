@@ -66,6 +66,8 @@ NimBLEServer *bleServer = nullptr;
 bool bleStarted = false;
 bool bleConnected = false;
 volatile bool bleConnectionChanged = false;
+uint8_t goKeyCode = 0x2C;     // Space
+uint8_t panicKeyCode = 0x29;  // Esc
 
 volatile bool loraEventFlag = false;
 bool loraInitialized = false;

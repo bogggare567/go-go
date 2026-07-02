@@ -23,14 +23,49 @@ static const uint8_t keyboardReportMap[] = {
   0x19, 0x00, 0x29, 0xFF, 0x81, 0x00, 0xC0
 };
 
+// Remappable keys: HID usage codes + display names. Defaults match QLab.
+struct KeyOption { uint8_t code; const char* name; };
+static const KeyOption KEY_OPTIONS[] = {
+  {0x2C, "Space"}, {0x28, "Enter"}, {0x29, "Esc"},
+  {0x4F, "Right"}, {0x50, "Left"}, {0x52, "Up"}, {0x51, "Down"},
+  {0x4B, "PgUp"}, {0x4E, "PgDn"}, {0x3E, "F5"}, {0x05, "B"},
+};
+static const int KEY_OPTION_COUNT = sizeof(KEY_OPTIONS) / sizeof(KEY_OPTIONS[0]);
+
+const char* keyName(uint8_t code) {
+  for (auto &k : KEY_OPTIONS) {
+    if (k.code == code) return k.name;
+  }
+  return "?";
+}
+
+static uint8_t nextKeyOption(uint8_t code) {
+  for (int i = 0; i < KEY_OPTION_COUNT; i++) {
+    if (KEY_OPTIONS[i].code == code) return KEY_OPTIONS[(i + 1) % KEY_OPTION_COUNT].code;
+  }
+  return KEY_OPTIONS[0].code;
+}
+
+void cycleGoKey() {
+  goKeyCode = nextKeyOption(goKeyCode);
+  saveKeymap();
+}
+
+void cyclePanicKey() {
+  panicKeyCode = nextKeyOption(panicKeyCode);
+  saveKeymap();
+}
+
+// NimBLE 2.x callback signatures. The v15 code used the 1.x ones, which
+// silently never fired on this library version (the loop() poll masked it).
 class BleHIDCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer* pServer) {
+  void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
     bleConnected = true;
     bleConnectionChanged = true;
     DBGLN("[BLE] connected");
   }
 
-  void onDisconnect(NimBLEServer* pServer) {
+  void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
     bleConnected = false;
     bleConnectionChanged = true;
     DBGLN("[BLE] disconnected");
@@ -51,6 +86,9 @@ void startBLEMode() {
   DBGLN("[BLE] start");
 
   NimBLEDevice::init(deviceName.c_str());
+  // Bonding: both sides store the keys, so a previously paired host
+  // reconnects automatically as soon as it sees our advertising.
+  NimBLEDevice::setSecurityAuth(true, false, true);
   bleServer = NimBLEDevice::createServer();
   bleServer->setCallbacks(new BleHIDCallbacks());
 

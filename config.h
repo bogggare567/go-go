@@ -133,6 +133,8 @@ enum : uint8_t {
   MENU_LORA_POWER,
   MENU_REGION,
   MENU_TUNE,
+  MENU_GO_KEY,
+  MENU_PANIC_KEY,
   MENU_PAIR,
   MENU_OUTPUT,
   MENU_RESET,
@@ -245,6 +247,8 @@ extern NimBLEServer *bleServer;
 extern bool bleStarted;
 extern bool bleConnected;
 extern volatile bool bleConnectionChanged;
+extern uint8_t goKeyCode;      // HID usage code typed on GO (default Space)
+extern uint8_t panicKeyCode;   // HID usage code typed on PANIC (default Esc)
 
 extern volatile bool loraEventFlag;
 extern bool loraInitialized;

@@ -40,11 +40,20 @@ void saveOscConfig() {
   prefs.end();
 }
 
+void saveKeymap() {
+  prefs.begin("system", false);
+  prefs.putUChar("gokey", goKeyCode);
+  prefs.putUChar("pankey", panicKeyCode);
+  prefs.end();
+}
+
 bool loadControlMode() {
   prefs.begin("system", true);
   bool saved = prefs.getBool("mode_set", false);
   int value = prefs.getInt("mode", MODE_OSC_WIFI);
   gatewayOutputMode = prefs.getUChar("out", OUT_BLE);
+  goKeyCode = prefs.getUChar("gokey", 0x2C);    // Space
+  panicKeyCode = prefs.getUChar("pankey", 0x29); // Esc
   prefs.end();
 
   if (!saved) {

@@ -229,7 +229,7 @@ void emitGatewayAction(uint8_t type, uint32_t fromSender) {
   }
 
   if (outputWantsBle() && bleConnected) {
-    sendKeyPress((type == PKT_GO) ? 0x2C : 0x29);
+    sendKeyPress((type == PKT_GO) ? goKeyCode : panicKeyCode);
   }
 
   blinkLedOnce();

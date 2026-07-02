@@ -10,13 +10,13 @@ const uint8_t MENU_OSC_ITEMS[] = {
   MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_BLE_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_REMOTE_ITEMS[] = {
   MENU_PAIR, MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 const uint8_t MENU_LORA_GATEWAY_ITEMS[] = {
-  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_OUTPUT, MENU_RESET, MENU_POWER_OFF, MENU_BACK
+  MENU_MODE, MENU_SETUP, MENU_STATUS, MENU_REGION, MENU_LORA_FREQ, MENU_TUNE, MENU_LORA_POWER, MENU_OUTPUT, MENU_GO_KEY, MENU_PANIC_KEY, MENU_RESET, MENU_POWER_OFF, MENU_BACK
 };
 
 // ============================================================================
@@ -500,8 +500,8 @@ void drawStatusScreen() {
   } else if (controlMode == MODE_BLE_HID) {
     display.setCursor(0, y); display.print("BLE: "); display.print(bleConnected ? "Connected" : "Waiting"); y += 8;
     display.setCursor(0, y); display.print("Device: "); display.print(getUniqueName()); y += 8;
-    display.setCursor(0, y); display.print("GO: SPACE"); y += 8;
-    display.setCursor(0, y); display.print("PANIC: ESC");
+    display.setCursor(0, y); display.print("GO: "); display.print(keyName(goKeyCode)); y += 8;
+    display.setCursor(0, y); display.print("PANIC: "); display.print(keyName(panicKeyCode));
   } else if (isLoRaRemote()) {
     display.setCursor(0, y); display.print("Radio: "); display.print(loraInitialized ? "OK" : "FAIL"); y += 8;
     display.setCursor(0, y); display.print("Pair: "); display.print(peerTargetString()); y += 8;
@@ -574,6 +574,12 @@ void printMenuLabel(uint8_t item) {
       display.print("Tune: ");
       if (radioCfg.tuneKhz >= 0) display.print("+");
       display.print(radioCfg.tuneKhz); display.print("kHz");
+      break;
+    case MENU_GO_KEY:
+      display.print("GO key: "); display.print(keyName(goKeyCode));
+      break;
+    case MENU_PANIC_KEY:
+      display.print("PANIC key: "); display.print(keyName(panicKeyCode));
       break;
     case MENU_PAIR:
       display.print("Pair RX");
@@ -653,7 +659,9 @@ void drawModeInfo() {
     display.setCursor(0, 18); display.print("Device:");
     display.setCursor(0, 29); display.print(getUniqueName());
     display.setCursor(0, 41); display.print(bleConnected ? "Connected" : "Waiting pair");
-    display.setCursor(0, 54); display.print("GO=SPACE PANIC=ESC");
+    display.setCursor(0, 54);
+    display.print("GO="); display.print(keyName(goKeyCode));
+    display.print(" PANIC="); display.print(keyName(panicKeyCode));
   } else if (controlMode == MODE_OSC_WIFI) {
     drawCenteredText("WiFi INFO", 0, 2);
     display.setTextSize(1);
