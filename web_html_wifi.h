@@ -39,6 +39,16 @@ input{width:100%;background:#0c1320;border:1px solid var(--line);color:var(--tx)
 <button class="btn ghost" onclick="scan(1)">Rescan</button>
 </div>
 
+<div class="card" id="osccard">
+<h3>QLab / OSC target (optional)</h3>
+<label>Target IP (your computer)</label><input id="oscIp">
+<label>Port</label><input id="oscPort" type="number">
+<label>GO address</label><input id="goAddr">
+<label>PANIC address</label><input id="panAddr">
+<button class="btn ghost" onclick="saveOsc()">Save OSC settings</button>
+<div id="oscst" class="sub"></div>
+</div>
+
 <div class="card">
 <h3>Join</h3>
 <label>Network</label><input id="ssid" placeholder="network name">
@@ -69,10 +79,16 @@ async function poll(){try{
 let r=await(await fetch('/api/joinstatus')).json();
 if(r.state=='ok'){clearInterval(timer);
 document.getElementById('st').innerHTML='<b class="ok">Connected!</b> Control panel: <b>http://'+r.ip+
-'</b><br>Saving and rebooting… join your network back and open that address.';
-setTimeout(()=>fetch('/api/reboot',{method:'POST'}),2500);}
+'</b><br>The device reboots by itself in a few seconds — rejoin your network and open that address.';}
 else if(r.state=='fail'){clearInterval(timer);
 document.getElementById('st').innerHTML='<b class="bad">Failed</b> — check the password and try again.';}
 }catch(e){}}
-scan(0);
+async function loadOsc(){try{let c=await(await fetch('/api/config')).json();
+for(let[i,v]of[['oscIp',c.oscIp],['oscPort',c.oscPort],['goAddr',c.go],['panAddr',c.panic]])
+document.getElementById(i).value=v;}catch(e){}}
+async function saveOsc(){let f=new FormData();
+for(let i of['oscIp','oscPort','goAddr','panAddr'])f.append(i,document.getElementById(i).value);
+await fetch('/api/config',{method:'POST',body:f});
+document.getElementById('oscst').textContent='Saved.';}
+loadOsc();scan(0);
 </script></body></html>)rawliteral";

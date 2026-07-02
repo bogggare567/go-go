@@ -34,7 +34,8 @@ bool connectWiFiWithDisplay(bool allowPortal) {
   }
 
   unsigned long start = millis();
-  unsigned long budget = allowPortal ? 8000UL : 2200UL;
+  // A fresh association (no stack-persisted state) often needs 3-5 s.
+  unsigned long budget = allowPortal ? 8000UL : 6000UL;
   while (WiFi.status() != WL_CONNECTED && millis() - start < budget) {
     delay(100);
   }

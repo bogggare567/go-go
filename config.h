@@ -1,5 +1,5 @@
 // GO-GO — shared types, pins, constants and global state declarations.
-#define GOGO_VERSION "v16.9"
+#define GOGO_VERSION "v16.10"
 // Split 1:1 from the v15 monolith; behavior must stay identical.
 #pragma once
 

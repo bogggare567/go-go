@@ -1,5 +1,5 @@
 {
-  "version": "v16.9",
+  "version": "v16.10",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "WiFi Setup separated from the panel: scan nearby networks, show password, no ghost reconnect after reset"
+  "notes": "WiFi Setup fixes: reliable join, OSC target block on the onboarding page, no screen stomp"
 }

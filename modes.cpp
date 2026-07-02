@@ -118,6 +118,8 @@ void startModeNow(uint8_t mode) {
     return;
   }
 
+  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
+
   if (ready) {
     setScreen(SCREEN_GO);
   } else {
@@ -166,6 +168,8 @@ void startRxNow(uint8_t out) {
     return;
   }
 
+  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
+
   if (ready) {
     setScreen(SCREEN_GO);
   } else {
@@ -193,6 +197,7 @@ void restartIntoMode(uint8_t mode) {
     setScreen(SCREEN_REGION_SELECT);
     return;
   }
+  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
   if (mode == MODE_LORA_REMOTE && ready) {
     selectedPeerIndex = 0;
     setScreen(SCREEN_PAIR_SELECT);
@@ -236,6 +241,7 @@ void restartIntoRxOutput(uint8_t out) {
     setScreen(SCREEN_REGION_SELECT);
     return;
   }
+  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
   setScreen(ready ? SCREEN_GO : SCREEN_NO_CONNECTION);
   messageTime = millis();
 }

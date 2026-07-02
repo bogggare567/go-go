@@ -129,27 +129,31 @@ static void handleConfigPost() {
     reboot = true;
   }
 
-  // Structural settings: applied via reboot for a clean re-init.
-  uint8_t newMode = (uint8_t)server.arg("mode").toInt();
-  uint8_t newOut = (uint8_t)server.arg("out").toInt();
-  uint8_t newRegion = (uint8_t)server.arg("region").toInt();
-  String chanArg = server.arg("chan");
-  bool newAuto = (chanArg == "auto");
-  uint8_t newChan = newAuto ? 0 : (uint8_t)chanArg.toInt();
-
-  if (newMode != (uint8_t)controlMode || newOut != gatewayOutputMode) {
-    saveControlModeAndOutput(newMode, newOut);
-    reboot = true;
+  // Structural settings: applied via reboot for a clean re-init. Only when
+  // the fields were actually sent - the onboarding page posts OSC-only forms.
+  if (server.hasArg("mode") && server.hasArg("out")) {
+    uint8_t newMode = (uint8_t)server.arg("mode").toInt();
+    uint8_t newOut = (uint8_t)server.arg("out").toInt();
+    if (newMode != (uint8_t)controlMode || newOut != gatewayOutputMode) {
+      saveControlModeAndOutput(newMode, newOut);
+      reboot = true;
+    }
   }
-  if (newRegion != radioCfg.region || newAuto != freqAuto ||
-      (!newAuto && newChan != radioCfg.chan)) {
-    radioCfg.region = newRegion;
-    radioCfg.chan = newChan;
-    freqAuto = newAuto;
-    regionConfigured = true;
-    applyRadioFreq();
-    saveRadioConfig();
-    reboot = true;
+  if (server.hasArg("region") && server.hasArg("chan")) {
+    uint8_t newRegion = (uint8_t)server.arg("region").toInt();
+    String chanArg = server.arg("chan");
+    bool newAuto = (chanArg == "auto");
+    uint8_t newChan = newAuto ? 0 : (uint8_t)chanArg.toInt();
+    if (newRegion != radioCfg.region || newAuto != freqAuto ||
+        (!newAuto && newChan != radioCfg.chan)) {
+      radioCfg.region = newRegion;
+      radioCfg.chan = newChan;
+      freqAuto = newAuto;
+      regionConfigured = true;
+      applyRadioFreq();
+      saveRadioConfig();
+      reboot = true;
+    }
   }
 
   server.send(200, "application/json", String("{\"reboot\":") + (reboot ? "true" : "false") + "}");
@@ -306,6 +310,9 @@ static void handleScan() {
   server.send(200, "application/json", j);
 }
 
+static unsigned long joinStart = 0;
+static unsigned long joinOkAt = 0;
+
 static void handleJoin() {
   safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
   safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
@@ -313,6 +320,8 @@ static void handleJoin() {
   WiFi.mode(WIFI_AP_STA);  // keep our AP alive while trying the venue network
   WiFi.begin(wifiSsid, wifiPass);
   joinAttempt = true;
+  joinStart = millis();
+  joinOkAt = 0;
   server.send(200, "application/json", "{}");
 }
 
@@ -320,7 +329,8 @@ static void handleJoinStatus() {
   String state = "connecting";
   if (!joinAttempt) state = "idle";
   else if (WiFi.status() == WL_CONNECTED) state = "ok";
-  else if (WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_NO_SSID_AVAIL) state = "fail";
+  else if (WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_NO_SSID_AVAIL ||
+           millis() - joinStart > 20000) state = "fail";
   String j = "{\"state\":\"" + state + "\",\"ip\":\"" +
              (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\"}";
   server.send(200, "application/json", j);
@@ -480,4 +490,15 @@ void webLoop() {
   if (!serverStarted && (WiFi.status() == WL_CONNECTED || apRaised)) startServer();
   if (apRaised) dns.processNextRequest();
   if (serverStarted) server.handleClient();
+
+  // Onboarding finish is autonomous: channel switching may kick the phone
+  // off our AP, so the reboot must not depend on the page's JavaScript.
+  if (joinAttempt && WiFi.status() == WL_CONNECTED) {
+    if (!joinOkAt) joinOkAt = millis();
+    if (millis() - joinOkAt > 5000) {
+      joinAttempt = false;
+      showSimpleMessage("WiFi OK", WiFi.localIP().toString().c_str(), 1500);
+      ESP.restart();
+    }
+  }
 }

@@ -172,8 +172,11 @@ void loop() {
   }
 
   // Silent WiFi reconnect for OSC outputs: no captive portal, no UI blocking.
+  // Paused while the setup AP is up - reconnect() would abort the scan/join
+  // the user is doing on the onboarding page.
   static unsigned long lastWifiRetry = 0;
   if ((controlMode == MODE_OSC_WIFI || (controlMode == MODE_LORA_GATEWAY && outputWantsOsc())) &&
+      !webApActive() && wifiSsid[0] &&
       WiFi.status() != WL_CONNECTED && now - lastWifiRetry >= 15000) {
     lastWifiRetry = now;
     WiFi.reconnect();
