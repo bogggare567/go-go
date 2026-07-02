@@ -178,7 +178,8 @@ enum PacketType : uint8_t {
   PKT_GO    = 0x03,
   PKT_PANIC = 0x04,
   PKT_ACK   = 0x05,
-  PKT_BEACON = 0x06
+  PKT_BEACON = 0x06,
+  PKT_HOP   = 0x07   // master announces a channel change; ackCommand = grid index
 };
 
 #pragma pack(push, 1)
@@ -288,5 +289,6 @@ extern uint32_t pairedRxId;
 
 extern bool regionConfigured;      // region was explicitly chosen once
 extern uint8_t selectedRegion;     // cursor on the region select screen
+extern bool freqAuto;              // Auto: RX picks the cleanest channel, TX follows
 extern uint8_t spectrumLevels[64]; // live RSSI bars for the spectrum screen
 extern uint8_t spectrumPos;

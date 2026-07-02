@@ -114,8 +114,43 @@ void updateLedMode() {
   ledMode = isConnectionReady() ? LED_SOLID : LED_FAST_BLINK;
 }
 
+// Morse "GO" (--. ---) identity blink, unit 70 ms. Played once when the
+// remote locks onto its master during an auto-frequency search.
+static const uint8_t MORSE_GO[] = {
+  // on,off pairs in units: G = dash dash dot, O = dash dash dash
+  3,1, 3,1, 1,3,   // G  (letter gap = 3)
+  3,1, 3,1, 3,3    // O
+};
+static int morseStep = -1;
+static unsigned long morseStepStart = 0;
+
+void ledPlayMorseGo() {
+  morseStep = 0;
+  morseStepStart = millis();
+}
+
+static bool morsePlaying(unsigned long now) {
+  if (morseStep < 0) return false;
+  const unsigned long UNIT = 70;
+  int pair = morseStep / 2;
+  bool onPhase = (morseStep % 2) == 0;
+  if (pair >= (int)(sizeof(MORSE_GO) / 2)) {
+    morseStep = -1;
+    return false;
+  }
+  ledWrite(onPhase);
+  unsigned long dur = MORSE_GO[morseStep] * UNIT;
+  if (now - morseStepStart >= dur) {
+    morseStep++;
+    morseStepStart = now;
+  }
+  return true;
+}
+
 void updateLed() {
   unsigned long now = millis();
+
+  if (morsePlaying(now)) return;
 
   if (ledMode != lastAppliedLedMode) {
     lastAppliedLedMode = ledMode;

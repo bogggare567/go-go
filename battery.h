@@ -11,3 +11,4 @@ bool isSearchingForLed();
 bool hasRadioLinkButOutputMissing();
 void updateLedMode();
 void updateLed();
+void ledPlayMorseGo();   // identity blink when the slave finds its master

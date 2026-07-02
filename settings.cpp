@@ -106,6 +106,7 @@ void loadRadioConfig() {
   radioCfg.chan = prefs.getUChar("chan", 255);
   radioCfg.tuneKhz = 0;  // fine-tune UI removed in v16.4; field kept for compat
   regionConfigured = prefs.getBool("regset", false);
+  freqAuto = prefs.getBool("fauto", true);
   prefs.end();
 
   if (radioCfg.chan == 255) {
@@ -142,5 +143,6 @@ void saveRadioConfig() {
   prefs.putUChar("region", radioCfg.region);
   prefs.putUChar("chan", radioCfg.chan);
   prefs.putBool("regset", regionConfigured);
+  prefs.putBool("fauto", freqAuto);
   prefs.end();
 }

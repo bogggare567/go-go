@@ -104,6 +104,7 @@ uint32_t pairedRxId = 0;   // 0 = ANY RX on this channel
 
 bool regionConfigured = false;
 uint8_t selectedRegion = 0;
+bool freqAuto = true;   // Auto by default: RX picks the channel, TX follows
 uint8_t spectrumLevels[64] = {0};
 uint8_t spectrumPos = 0;
 
@@ -204,6 +205,10 @@ void loop() {
       sendGatewayBeacon();
       gatewayWifiReady = outputWantsOsc() && (WiFi.status() == WL_CONNECTED);
     }
+
+    // Auto frequency: gateway watches the noise floor and hops when the
+    // channel degrades (quiet link + cooldown); remote hunts for its master.
+    radioAutoStep();
   }
 
   updateLoRaLinkScreen();

@@ -404,7 +404,13 @@ void drawLoraSearch() {
   drawCenteredText(isLoRaRemote() ? "SEARCH RX" : "WAIT TX", 10, 2);
   display.setTextSize(1);
   if (isLoRaRemote()) {
-    drawCenteredText("waiting for RX", 32, 1);
+    if (freqAuto && slaveSearching()) {
+      char buf[20];
+      snprintf(buf, sizeof(buf), "scan %.2f MHz", searchStatusFreq());
+      drawCenteredText(buf, 32, 1);
+    } else {
+      drawCenteredText("waiting for RX", 32, 1);
+    }
     drawCenteredText("Pair if needed", 45, 1);
   } else {
     drawCenteredText("waiting for TX", 32, 1);
@@ -510,7 +516,7 @@ void drawStatusScreen() {
     display.setCursor(0, y); display.print("Pair: "); display.print(peerTargetString()); y += 8;
     display.setCursor(0, y); display.print("RX: "); display.print(loraPeerFound() ? shortIdString(lastPeerId) : "WAIT"); y += 8;
     display.setCursor(0, y); display.print("RSSI: "); if (lastPeerId) display.print(lastPeerRssi); else display.print("--"); y += 8;
-    display.setCursor(0, y); display.print("CH: "); display.print(currentRegion().name); display.print(" "); display.print(radioCfg.freq, 2); y += 8;
+    display.setCursor(0, y); display.print("CH: "); display.print(currentRegion().name); display.print(" "); display.print(radioCfg.freq, 2); if (freqAuto) display.print(" A"); y += 8;
     display.setCursor(0, y); display.print("ID: "); display.print(shortIdString(deviceId));
   } else if (isLoRaGateway()) {
     display.setCursor(0, y); display.print("Radio: "); display.print(loraInitialized ? "OK" : "FAIL"); y += 8;
@@ -565,7 +571,9 @@ void printMenuLabel(uint8_t item) {
       display.print("Status");
       break;
     case MENU_LORA_FREQ:
-      display.print("Freq: "); display.print(radioCfg.freq, 2);
+      display.print("Freq: ");
+      if (freqAuto) display.print("Auto");
+      else display.print(radioCfg.freq, 2);
       break;
     case MENU_REGION:
       display.print("Region: "); display.print(currentRegion().name);

@@ -12,6 +12,17 @@ void IRAM_ATTR loraSetFlag() {
   loraEventFlag = true;
 }
 
+// --- auto-frequency state (logic lives near the end of this file) ---
+static uint8_t autoGridIdx = 0;
+static bool searchActive = false;
+static bool searchDwelling = false;
+static uint8_t searchIdx = 0;
+static unsigned long searchDwellStart = 0;
+static float searchFreqNow = 0;
+static void tuneTo(float f);
+static uint8_t pickCleanestBin();
+static void masterAdoptBin(uint8_t idx);
+
 String peerTargetString() {
   if (pairedRxId == 0) return String("ANY");
   return shortIdString(pairedRxId);
@@ -120,6 +131,15 @@ bool initLoRa() {
   loraInitialized = true;
   loraInitFailed = false;
   lastLinkSeen = millis();
+
+  // Auto frequency: the gateway (master) starts on the cleanest bin it can
+  // find; remotes will locate it by scanning the same grid.
+  if (freqAuto && isLoRaGateway()) {
+    masterAdoptBin(pickCleanestBin());
+  } else if (freqAuto && isLoRaRemote()) {
+    searchActive = false;
+    lastLinkSeen = 0;  // start the grid search on the first loop pass
+  }
   return true;
 }
 
@@ -273,6 +293,14 @@ void processLoRaPacket() {
         linkOK = true;
         lastLinkSeen = millis();
       }
+    } else if (p.type == PKT_HOP && freqAuto) {
+      // Master announced a channel change: follow immediately. The master
+      // keeps announcing on the old channel briefly, then joins us.
+      if (pairedRxId == 0 || pairedRxId == p.senderId) {
+        radioCfg.freq = gridFreq(p.ackCommand);
+        tuneTo(radioCfg.freq);
+        lastLinkSeen = millis();
+      }
     } else if (p.type == PKT_ACK && waitingForAck && p.targetId == deviceId && p.ackCommand == pendingCommand) {
       waitingForAck = false;
       retryCount = 0;
@@ -285,6 +313,7 @@ void processLoRaPacket() {
 
 void sendHeartbeat() {
   if (!isLoRaRemote() || !loraInitialized) return;
+  if (searchActive) return;  // don't spray pings across bins while scanning
   unsigned long now = millis();
 
   if (now - lastPingTime >= PING_INTERVAL) {
@@ -375,8 +404,18 @@ void applyRadioFreq() {
 }
 
 void cycleFrequency() {
-  radioCfg.chan = (radioCfg.chan + 1) % currentRegion().numChannels;
-  applyRadioFreq();
+  // Auto -> ch0 -> ch1 -> ... -> last -> Auto. Picking a fixed channel
+  // disables all hopping/searching (manual override, owner requirement).
+  if (freqAuto) {
+    freqAuto = false;
+    radioCfg.chan = 0;
+    applyRadioFreq();
+  } else if (radioCfg.chan + 1 < currentRegion().numChannels) {
+    radioCfg.chan++;
+    applyRadioFreq();
+  } else {
+    freqAuto = true;
+  }
   saveRadioConfig();
   restartLoRa();
 }
@@ -400,6 +439,166 @@ void exitSpectrum() {
     lora.setFrequency(radioCfg.freq);
     lora.startReceive();
   }
+}
+
+// ============================================================================
+// Auto frequency: master/slave on a dense grid
+// ============================================================================
+// Grid: 0.2 MHz steps across the region band, inset 0.1 MHz from the edges.
+// A LoRa signal is 125 kHz wide, so a finer grid would just overlap itself.
+uint8_t gridCount() {
+  const RegionPlan& r = currentRegion();
+  int n = (int)((r.scanTo - r.scanFrom - 0.2f) / 0.2f) + 1;
+  if (n < 1) n = 1;
+  if (n > 255) n = 255;
+  return (uint8_t)n;
+}
+
+float gridFreq(uint8_t idx) {
+  const RegionPlan& r = currentRegion();
+  return r.scanFrom + 0.1f + 0.2f * idx;
+}
+
+// master hop hysteresis: 6 s of sustained noise, quiet link, >=60 s between hops
+static float noiseWin[20];
+static uint8_t noiseCount = 0, noiseIdx = 0;
+static unsigned long lastNoiseSample = 0;
+static unsigned long lastHopTime = 0;
+
+bool slaveSearching() { return searchActive; }
+float searchStatusFreq() { return searchFreqNow; }
+
+static void tuneTo(float f) {
+  lora.standby();
+  lora.setFrequency(f);
+  lora.startReceive();
+}
+
+// Blocking sweep of the whole grid; returns the quietest bin.
+static uint8_t pickCleanestBin() {
+  uint8_t best = 0;
+  float bestRssi = 1000.0f;
+  uint8_t n = gridCount();
+  for (uint8_t i = 0; i < n; i++) {
+    lora.standby();
+    lora.setFrequency(gridFreq(i));
+    lora.startReceive();
+    delay(3);
+    float rssi = lora.getRSSI(false);
+    if (rssi < bestRssi) {
+      bestRssi = rssi;
+      best = i;
+    }
+  }
+  return best;
+}
+
+// Master: pick the cleanest bin now and park there (boot / after hop decision).
+static void masterAdoptBin(uint8_t idx) {
+  autoGridIdx = idx;
+  radioCfg.freq = gridFreq(idx);
+  tuneTo(radioCfg.freq);
+}
+
+static void masterAnnounceAndHop(uint8_t newIdx) {
+  // Announce on the old channel several times, then move. A slave that
+  // misses every copy simply re-finds us with its grid scan.
+  uint16_t counter = radioCfg.counter++;
+  for (int i = 0; i < 5; i++) {
+    LoRaPacket p{};
+    p.version = 1;
+    p.type = PKT_HOP;
+    p.senderId = deviceId;
+    p.targetId = 0xFFFFFFFF;
+    p.counter = counter;
+    p.ackCommand = newIdx;
+    p.crc = crc16_ccitt((const uint8_t*)&p, offsetof(LoRaPacket, crc));
+    lora.transmit((uint8_t*)&p, sizeof(p));
+    delay(60);
+  }
+  masterAdoptBin(newIdx);
+  lastHopTime = millis();
+  noiseCount = 0;
+  DBG("[HOP] moved to "); DBGLN(radioCfg.freq);
+}
+
+static void gatewayAutoStep() {
+  unsigned long now = millis();
+  if (now - lastNoiseSample < 300) return;
+  lastNoiseSample = now;
+
+  noiseWin[noiseIdx] = lora.getRSSI(false);
+  noiseIdx = (noiseIdx + 1) % 20;
+  if (noiseCount < 20) { noiseCount++; return; }
+
+  // Noise floor = the QUIETEST sample in the window: our own link's packets
+  // spike single samples, but the floor between packets stays low on a
+  // healthy channel.
+  float floorRssi = 0;
+  for (int i = 0; i < 20; i++) floorRssi = (i == 0 || noiseWin[i] < floorRssi) ? noiseWin[i] : floorRssi;
+
+  bool sustainedNoise = floorRssi > -90.0f;
+  bool linkQuiet = (lastCommandSeen == 0) || (now - lastCommandSeen > 10000);
+  bool cooledDown = (lastHopTime == 0) || (now - lastHopTime > 60000);
+
+  if (sustainedNoise && linkQuiet && cooledDown) {
+    uint8_t candidate = pickCleanestBin();
+    tuneTo(gridFreq(autoGridIdx));  // back to the current channel to announce
+    if (candidate != autoGridIdx) masterAnnounceAndHop(candidate);
+    else noiseCount = 0;
+  }
+}
+
+static void slaveAutoStep() {
+  unsigned long now = millis();
+
+  if (linkOK) {
+    if (searchActive) {
+      // Found the master: identity signature on the LED (Morse "GO").
+      searchActive = false;
+      searchDwelling = false;
+      ledPlayMorseGo();
+    }
+    return;
+  }
+
+  if (!searchActive) {
+    // Give the normal ping/pong 5 s to recover before we start hunting.
+    if (lastLinkSeen != 0 && now - lastLinkSeen < 5000) return;
+    searchActive = true;
+    searchDwelling = false;
+    searchIdx = 0;
+  }
+
+  if (searchDwelling) {
+    // Parked on an active bin, waiting for a beacon (master sends every 2 s).
+    if (now - searchDwellStart > 2600) {
+      searchDwelling = false;
+      searchIdx = (searchIdx + 1) % gridCount();
+    }
+    return;
+  }
+
+  // Probe the next bin: CAD is a ~2 ms LoRa-activity sniff.
+  searchFreqNow = gridFreq(searchIdx);
+  lora.standby();
+  lora.setFrequency(searchFreqNow);
+  int16_t cad = lora.scanChannel();
+  if (cad == RADIOLIB_LORA_DETECTED) {
+    radioCfg.freq = searchFreqNow;
+    lora.startReceive();
+    searchDwelling = true;
+    searchDwellStart = now;
+  } else {
+    lora.startReceive();
+    searchIdx = (searchIdx + 1) % gridCount();
+  }
+}
+
+void radioAutoStep() {
+  if (!freqAuto || !loraInitialized) return;
+  if (isLoRaGateway()) gatewayAutoStep();
+  else if (isLoRaRemote()) slaveAutoStep();
 }
 
 void spectrumSweepStep() {

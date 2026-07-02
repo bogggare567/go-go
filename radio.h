@@ -20,10 +20,19 @@ const RegionPlan& regionPlan(uint8_t idx);
 const RegionPlan& currentRegion();
 void applyRadioFreq();    // recompute radioCfg.freq from region/chan
 
-// Live spectrum view (also the base for the future auto channel scan)
+// Live spectrum view (also the base for the auto channel scan)
 void enterSpectrum();
 void exitSpectrum();
 void spectrumSweepStep();
+
+// Auto frequency (master/slave): dense 0.2 MHz grid across the region band.
+// RX (master) picks the cleanest bin and announces hops with PKT_HOP;
+// TX (slave) finds its master by CAD-scanning the grid for beacons.
+uint8_t gridCount();
+float gridFreq(uint8_t idx);
+void radioAutoStep();     // call from loop(); dispatches master/slave logic
+float searchStatusFreq(); // frequency currently being probed by the slave scan
+bool slaveSearching();
 
 bool initLoRa();
 void stopLoRa();
