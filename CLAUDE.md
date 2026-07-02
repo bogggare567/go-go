@@ -14,17 +14,26 @@ LoRa TX (пульт), LoRa RX (гейтвей → OSC или BLE).
 
 ## Правила работы
 
-- arduino-cli на машине нет; компиляцию локально не запускать, максимум — проверять
-  синтаксис глазами. Прошивает владелец через Arduino IDE или esptool.
-- Перед правкой `LoRa_soundkorb.ino` делать копию `.bak` (рабочее устройство, бета).
-- `build/` в git не добавлять (артефакты сборки). Бинарники релизов — через GitHub Releases.
-- Прошивка пока монолит `LoRa_soundkorb.ino` (~2800 строк); план разбиения на модули —
-  в ROADMAP §5: сначала разбиение 1:1 без изменения логики, потом фичи.
+- **Каждую правку прошивки проверять компиляцией** (arduino-cli 1.5.1 установлен, brew):
+  ```
+  arduino-cli compile --fqbn "Heltec-esp32:esp32:heltec_wifi_lora_32_V3:UploadSpeed=921600,CPUFreq=240,DebugLevel=none,LoopCore=1,EventsCore=1,LORAWAN_REGION=0,LoRaWanDebugLevel=0,LORAWAN_PREAMBLE_LENGTH=0,SLOW_CLK_TPYE=0" .
+  ```
+  Прошивает владелец через Arduino IDE или esptool.
+- ⚠ В тулчейне Heltec esp-14.2.0_20260121 не хватало стандартного заголовка `<numbers>`
+  (баг упаковки, ломает любую сборку) — восстановлен вручную в
+  `~/Library/Arduino15/packages/Heltec-esp32/tools/xtensa-esp-elf-gcc/.../include/c++/14.2.0/numbers`.
+  После переустановки/обновления ядра файл пропадёт — вернуть.
+- Перед крупными правками прошивки делать копию `.bak` (в .gitignore).
+- `build/` в git не добавлять. Бинарники релизов — через GitHub Releases.
 
-## Ключевые точки в коде
+## Структура прошивки (v16, после разбиения)
 
-- Пины и конфиг-структуры — начало `LoRa_soundkorb.ino` (строки ~40–100)
-- LoRa-протокол: `LoRaPacket` (~строка 270), типы пакетов PKT_*, CRC16-CCITT
-- Экраны UI: enum `Screen`, draw*-функции; кнопка: 1 клик = GO, удержание 1.4 с = PANIC,
-  3 быстрых клика = меню
-- Настройки хранятся в Preferences (неймспейсы: osc, system, radio)
+- `LoRa_soundkorb.ino` — глобальное состояние + setup/loop (кнопочная логика пока тут)
+- `config.h` — пины, константы, enum'ы, структуры, extern-объявления глобалов
+- `gogo.h` — зонтичный инклюд; каждый .cpp включает только его
+- Модули: `util`, `settings` (NVS), `battery` (заряд+LED), `osc_wifi`, `ble_hid`,
+  `radio` (LoRa-протокол: LoRaPacket, PKT_*, CRC16, sendCommand 3x), `modes`
+  (жизненный цикл режимов, performGO/performPanic), `ui_screens` (экраны, меню, boot-анимация)
+- Кнопка: 1 клик = GO, удержание 1.4 с = PANIC, 3 быстрых клика = меню
+- Настройки в Preferences (неймспейсы: osc, system, radio); счётчик пакетов
+  резервируется блоком +1000 на старте — в sendPacket записи во флеш нет
