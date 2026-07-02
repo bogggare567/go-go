@@ -1,5 +1,9 @@
 // GO-GO — theatre remote (Heltec WiFi LoRa 32 V3)
-// v16: split the v15 monolith into modules 1:1 (no behavior changes).
+// v16: split the v15 monolith into modules 1:1, then re-applied the June
+//      review fixes: no NVS write per packet (counter block reservation),
+//      GO/PANIC sent 3x with shared counter bypassing the heartbeat throttle,
+//      uint16 counter-wraparound-safe dedupe, calibrated battery ADC,
+//      silent WiFi reconnect in loop, Reboot menu item renamed to Power Off.
 // Modules: config.h (types/pins/state), util, settings, battery, osc_wifi,
 // ble_hid, radio, modes, ui_screens. This file owns global state + setup/loop.
 // v15: replace menu Reboot with Power Off, force RX->OSC WiFi setup, improve LED diagnostics.
@@ -149,6 +153,14 @@ void loop() {
   if (currentScreen == SCREEN_BOOT) {
     updateBootAnimation();
     return;
+  }
+
+  // Silent WiFi reconnect for OSC outputs: no captive portal, no UI blocking.
+  static unsigned long lastWifiRetry = 0;
+  if ((controlMode == MODE_OSC_WIFI || (controlMode == MODE_LORA_GATEWAY && outputWantsOsc())) &&
+      WiFi.status() != WL_CONNECTED && now - lastWifiRetry >= 15000) {
+    lastWifiRetry = now;
+    WiFi.reconnect();
   }
 
   // Runtime mode checks

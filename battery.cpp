@@ -41,8 +41,9 @@ void ledSelfTest() {
 void updateBattery() {
   digitalWrite(PIN_BATTERY_CTRL, HIGH);
   delay(10);
-  int raw = analogRead(PIN_BATTERY_DATA);
-  float voltage = (raw * 490.0f / 100.0f) / 1000.0f;
+  // Calibrated ADC reading; the board divider is ~390k/100k (factor 4.9).
+  uint32_t mv = analogReadMilliVolts(PIN_BATTERY_DATA);
+  float voltage = (mv * 4.9f) / 1000.0f;
   digitalWrite(PIN_BATTERY_CTRL, LOW);
 
   if (voltage > 3.0f) {

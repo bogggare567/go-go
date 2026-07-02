@@ -131,7 +131,7 @@ enum : uint8_t {
   MENU_PAIR,
   MENU_OUTPUT,
   MENU_RESET,
-  MENU_REBOOT,
+  MENU_POWER_OFF,
   MENU_BACK
 };
 

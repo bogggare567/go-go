@@ -140,9 +140,11 @@ bool canSendNow() {
   return (millis() - lastTxTimestamp) >= 100;
 }
 
-bool sendPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd) {
+// Build and transmit one packet with an explicit counter value.
+// The counter is NOT persisted here: loadRadioConfig() reserves a block on
+// boot, so per-packet NVS writes (flash wear, TX latency) are avoided.
+static bool transmitPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd, uint16_t counter) {
   if (!loraInitialized) return false;
-  if (!canSendNow()) return false;
   lastTxTimestamp = millis();
 
   LoRaPacket p{};
@@ -150,13 +152,12 @@ bool sendPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd) {
   p.type = type;
   p.senderId = deviceId;
   p.targetId = targetId;
-  p.counter = radioCfg.counter++;
+  p.counter = counter;
   p.ackCommand = ackCmd;
   p.crc = crc16_ccitt((const uint8_t*)&p, offsetof(LoRaPacket, crc));
 
   int state = lora.transmit((uint8_t*)&p, sizeof(p));
   lora.startReceive();
-  saveRadioConfig();
 
   if (state != RADIOLIB_ERR_NONE) {
     DBG("[LORA] TX failed: ");
@@ -168,10 +169,32 @@ bool sendPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd) {
   return true;
 }
 
+bool sendPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd) {
+  if (!loraInitialized) return false;
+  if (!canSendNow()) return false;
+  return transmitPacket(type, targetId, ackCmd, radioCfg.counter++);
+}
+
+bool sendCommand(uint8_t type, uint32_t targetId) {
+  // GO/PANIC path: bypass the heartbeat throttle and send 3 copies with the
+  // SAME counter — the gateway dedupes repeats, extra copies only add
+  // resilience against a single lost packet.
+  if (!loraInitialized) return false;
+  uint16_t counter = radioCfg.counter++;
+  bool ok = false;
+  for (int i = 0; i < 3; i++) {
+    if (transmitPacket(type, targetId, 0, counter)) ok = true;
+    delay(8);
+  }
+  return ok;
+}
+
 bool acceptNewPacket(uint32_t sender, uint16_t counter) {
   for (auto &peer : peerTable) {
     if (peer.used && peer.senderId == sender) {
-      if (counter <= peer.lastCounter) return false;
+      // uint16 wraparound-safe monotonic check (window of 32767).
+      int16_t diff = (int16_t)(counter - peer.lastCounter);
+      if (diff <= 0) return false;
       peer.lastCounter = counter;
       return true;
     }

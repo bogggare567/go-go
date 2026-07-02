@@ -94,6 +94,14 @@ void loadRadioConfig() {
   radioCfg.power = prefs.getChar("pwr", 14);
   radioCfg.counter = prefs.getUShort("cnt", 0);
   prefs.end();
+
+  // Reserve a counter block once per boot so sendPacket never writes NVS.
+  // The counter jumps forward after a reboot; receivers only need it to be
+  // monotonically increasing (wraparound-safe compare in acceptNewPacket).
+  radioCfg.counter += 1000;
+  prefs.begin("radio", false);
+  prefs.putUShort("cnt", radioCfg.counter);
+  prefs.end();
 }
 
 void saveRadioConfig() {

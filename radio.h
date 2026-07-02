@@ -11,6 +11,7 @@ void stopLoRa();
 void restartLoRa();
 bool canSendNow();
 bool sendPacket(uint8_t type, uint32_t targetId, uint8_t ackCmd = 0);
+bool sendCommand(uint8_t type, uint32_t targetId);
 bool acceptNewPacket(uint32_t sender, uint16_t counter);
 void emitGatewayAction(uint8_t type, uint32_t fromSender);
 void processLoRaPacket();

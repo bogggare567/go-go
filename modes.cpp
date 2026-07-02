@@ -285,7 +285,7 @@ void performGO() {
     // Command path must be fast: fire-and-forget.
     // Link heartbeat/PONG runs in the background, but GO does not wait for ACK.
     waitingForAck = false;
-    ackOk = sendPacket(PKT_GO, pairedRxId ? pairedRxId : 0xFFFFFFFF, 0);
+    ackOk = sendCommand(PKT_GO, pairedRxId ? pairedRxId : 0xFFFFFFFF);
   } else if (isLoRaGateway()) {
     emitGatewayAction(PKT_GO, deviceId);
     ackOk = true;
@@ -314,7 +314,7 @@ void performPanic() {
   } else if (isLoRaRemote()) {
     // Command path must be fast: fire-and-forget.
     waitingForAck = false;
-    ackOk = sendPacket(PKT_PANIC, pairedRxId ? pairedRxId : 0xFFFFFFFF, 0);
+    ackOk = sendCommand(PKT_PANIC, pairedRxId ? pairedRxId : 0xFFFFFFFF);
   } else if (isLoRaGateway()) {
     emitGatewayAction(PKT_PANIC, deviceId);
     ackOk = true;
@@ -393,7 +393,7 @@ void handleMenuSelect() {
       factoryReset();
       break;
 
-    case MENU_REBOOT:
+    case MENU_POWER_OFF:
       powerOffDevice();
       break;
 
