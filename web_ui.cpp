@@ -6,12 +6,17 @@
 #include <WiFiClientSecure.h>
 #include <DNSServer.h>
 #include "web_html.h"
+#include "web_html_wifi.h"
 
 static WebServer server(80);
 static DNSServer dns;   // captive portal: every AP lookup resolves to us
 static bool serverStarted = false;
 static bool apRaised = false;
 static bool webPausedBle = false;
+static bool wifiOnboarding = false;   // AP serves the scan/join page, not the panel
+static bool joinAttempt = false;
+
+bool wifiOnboardingActive() { return wifiOnboarding; }
 
 // Online update manifest (lives in the GitHub repo, fetched over HTTPS)
 static const char* OTA_MANIFEST_URL =
@@ -270,6 +275,58 @@ static void handleOtaInstall() {
 }
 
 // ---------------------------------------------------------------------------
+// WiFi onboarding: async scan + join with live status.
+// ---------------------------------------------------------------------------
+static void handleScan() {
+  if (server.hasArg("restart")) {
+    WiFi.scanDelete();
+    WiFi.scanNetworks(true);
+    server.send(200, "application/json", "{\"scan\":\"started\"}");
+    return;
+  }
+  int n = WiFi.scanComplete();
+  if (n == WIFI_SCAN_FAILED) {
+    WiFi.scanNetworks(true);
+    server.send(200, "application/json", "{\"scan\":\"started\"}");
+    return;
+  }
+  if (n == WIFI_SCAN_RUNNING) {
+    server.send(200, "application/json", "{\"scan\":\"running\"}");
+    return;
+  }
+  String j = "{\"nets\":[";
+  for (int i = 0; i < n; i++) {
+    if (i) j += ",";
+    j += "{\"ssid\":\"" + jsonEscape(WiFi.SSID(i).c_str()) + "\",";
+    j += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+    j += "\"enc\":" + String(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "false" : "true") + "}";
+  }
+  j += "]}";
+  WiFi.scanDelete();
+  server.send(200, "application/json", j);
+}
+
+static void handleJoin() {
+  safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
+  safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
+  saveWifiCreds();
+  WiFi.mode(WIFI_AP_STA);  // keep our AP alive while trying the venue network
+  WiFi.begin(wifiSsid, wifiPass);
+  joinAttempt = true;
+  server.send(200, "application/json", "{}");
+}
+
+static void handleJoinStatus() {
+  String state = "connecting";
+  if (!joinAttempt) state = "idle";
+  else if (WiFi.status() == WL_CONNECTED) state = "ok";
+  else if (WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_NO_SSID_AVAIL) state = "fail";
+  String j = "{\"state\":\"" + state + "\",\"ip\":\"" +
+             (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\"}";
+  server.send(200, "application/json", j);
+}
+
+// ---------------------------------------------------------------------------
 // QLab bridge: the browser asks us over HTTP, we ask QLab over OSC and relay
 // the raw JSON reply back. All rendering happens in the phone's browser.
 // ---------------------------------------------------------------------------
@@ -330,7 +387,9 @@ static void handleQlabQuery() {
 
 static void startServer() {
   server.on("/", HTTP_GET, []() {
-    server.send_P(200, "text/html", WEB_PAGE);
+    // During WiFi Setup the AP serves the simple join page; the full panel
+    // lives on the venue LAN once the board is connected.
+    server.send_P(200, "text/html", wifiOnboarding ? WIFI_PAGE : WEB_PAGE);
   });
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/config", HTTP_GET, handleConfigGet);
@@ -339,6 +398,10 @@ static void startServer() {
   server.on("/api/spectrum", HTTP_POST, handleSpectrumPost);
   server.on("/api/go", HTTP_POST, []() { performGO(); server.send(200, "application/json", "{}"); });
   server.on("/api/panic", HTTP_POST, []() { performPanic(); server.send(200, "application/json", "{}"); });
+  server.on("/api/scan", HTTP_GET, handleScan);
+  server.on("/api/scan", HTTP_POST, handleScan);
+  server.on("/api/join", HTTP_POST, handleJoin);
+  server.on("/api/joinstatus", HTTP_GET, handleJoinStatus);
   server.on("/api/qlab/cmd", HTTP_POST, handleQlabCmd);
   server.on("/api/qlab/query", HTTP_GET, handleQlabQuery);
   server.on("/api/otacheck", HTTP_GET, handleOtaCheck);
@@ -368,6 +431,12 @@ static void startServer() {
   DBGLN("[WEB] server started");
 }
 
+void startWifiOnboarding() {
+  wifiOnboarding = true;
+  joinAttempt = false;
+  startWebSetup();
+}
+
 void startWebSetup() {
   // In OSC modes the STA link already carries the UI; otherwise raise an AP.
   if (WiFi.status() != WL_CONNECTED) {
@@ -389,6 +458,8 @@ void startWebSetup() {
 }
 
 void stopWebSetup() {
+  wifiOnboarding = false;
+  joinAttempt = false;
   if (apRaised) {
     dns.stop();
     WiFi.softAPdisconnect(true);

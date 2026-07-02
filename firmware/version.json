@@ -1,5 +1,5 @@
 {
-  "version": "v16.8",
+  "version": "v16.9",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "Captive portal auto-opens the panel; QLab remote tab (transport, cue list, active cues)"
+  "notes": "WiFi Setup separated from the panel: scan nearby networks, show password, no ghost reconnect after reset"
 }

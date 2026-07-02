@@ -682,7 +682,7 @@ void drawRegionSelect() {
 void drawWebSetup() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
-  drawCenteredText("WEB SETUP", 0, 1);
+  drawCenteredText(wifiOnboardingActive() ? "WIFI SETUP" : "WEB SETUP", 0, 1);
   display.setTextSize(1);
   if (webApActive()) {
     drawCenteredText("Join WiFi:", 14, 1);

@@ -118,6 +118,10 @@ void setup() {
   delay(180);
   DBGLN("\n[BOOT] GO-GO Universal v15 poweroff-wifi-led-fix");
 
+  // Never let the WiFi stack store its own copy of credentials: the network
+  // must come exclusively from our Preferences (factory reset really resets).
+  WiFi.persistent(false);
+
   VextON();
   delay(100);
 

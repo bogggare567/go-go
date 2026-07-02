@@ -11,20 +11,25 @@ bool connectWiFiWithDisplay(bool allowPortal) {
   DBGLN("[WIFI] connectWiFiWithDisplay()");
   if (WiFi.status() == WL_CONNECTED) return true;
 
-  WiFi.mode(WIFI_STA);
-  if (wifiSsid[0]) {
-    WiFi.begin(wifiSsid, wifiPass);
-  } else {
-    // Fall back to credentials persisted by older firmware (WiFiManager era).
-    WiFi.begin();
+  // Only OUR stored credentials, ever. The ESP WiFi stack's own persistence
+  // is disabled in setup() - after a factory reset there is no ghost network
+  // to silently reconnect to.
+  if (!wifiSsid[0]) {
+    if (allowPortal) {
+      startWifiOnboarding();
+      setScreen(SCREEN_WEB_SETUP);
+    }
+    return false;
   }
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifiSsid, wifiPass);
 
   if (allowPortal) {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     drawCenteredText("WiFi", 4, 2);
     drawCenteredText("connecting...", 26, 1);
-    drawCenteredText(wifiSsid[0] ? wifiSsid : "(saved network)", 40, 1);
+    drawCenteredText(wifiSsid, 40, 1);
     display.display();
   }
 
@@ -41,9 +46,8 @@ bool connectWiFiWithDisplay(bool allowPortal) {
   }
 
   if (allowPortal) {
-    // No captive portal anymore: raise our own AP with the web panel and let
-    // the user enter the network + OSC settings there.
-    startWebSetup();
+    // Could not join: open the WiFi onboarding page (scan + join).
+    startWifiOnboarding();
     setScreen(SCREEN_WEB_SETUP);
   }
   return false;
@@ -51,8 +55,8 @@ bool connectWiFiWithDisplay(bool allowPortal) {
 
 bool configureWiFi(bool rebootAfterSave) {
   (void)rebootAfterSave;
-  DBGLN("[WIFI] configureWiFi() -> web panel");
-  startWebSetup();
+  DBGLN("[WIFI] configureWiFi() -> WiFi onboarding");
+  startWifiOnboarding();
   setScreen(SCREEN_WEB_SETUP);
   return WiFi.status() == WL_CONNECTED;
 }

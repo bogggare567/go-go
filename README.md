@@ -80,7 +80,7 @@ The board reboots into GO-GO automatically. On first boot, pick a mode with the 
 
 ## Setting up
 
-- **OSC mode:** on first run the device opens its own WiFi network `GO-GO-XXXXXX` (password `password123`) with the web panel at `http://192.168.4.1`. Enter your venue WiFi, target IP, port (QLab: `53000`) and OSC addresses (`/go`, `/panic`) right there.
+- **OSC mode:** on first run the device opens its own WiFi network `GO-GO-XXXXXX` (password `password123`) and the **WiFi Setup page pops up by itself**: pick your venue network from the scan list, type the password (with a show-password toggle) — the page reports the board's new address. The full control panel (OSC target, keys, firmware, QLab remote) then lives at that address on your network.
 - **BLE mode:** pair `GO-GO-XXXXXX` as a Bluetooth keyboard. GO types `Space`, PANIC types `Esc` — QLab's defaults.
   > **Note:** BLE mode is keyboard emulation — keystrokes go to the frontmost app. Keep the QLab window focused during the show, or use OSC mode, which doesn't care about focus.
 - **LoRa pair:** set one board to LoRa RX, the other to LoRa TX — the remote scans, shows discovered receivers with signal strength, hold to pair. Frequency is **Auto** by default: the gateway picks the cleanest channel in your region and the remote finds it by itself; pick a fixed channel in the menu to disable all automation.
