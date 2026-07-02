@@ -44,6 +44,9 @@ static void handleStatus() {
   j += "\"name\":\"" + getUniqueName() + "\",";
   j += "\"ver\":\"" GOGO_VERSION "\",";
   j += "\"modeName\":\"" + String(modeLabel(controlMode)) + "\",";
+  j += "\"mode\":" + String((int)controlMode) + ",";
+  j += "\"out\":" + String((int)gatewayOutputMode) + ",";
+  j += "\"osc\":\"" + jsonEscape(config.osc_ip) + ":" + String(config.osc_port) + "\",";
   j += "\"link\":" + String(loraPeerFound() ? "true" : "false") + ",";
   j += "\"region\":\"" + String(currentRegion().name) + "\",";
   j += "\"freq\":" + String(radioCfg.freq, 3) + ",";

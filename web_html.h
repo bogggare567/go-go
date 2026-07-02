@@ -30,6 +30,7 @@ input,select{width:100%;background:#0c1320;border:1px solid var(--line);color:va
 .bigbtns .btn{flex:1;padding:16px;font-size:20px;margin-top:0}
 canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--line)}
 .warn{color:var(--sel);font-size:13px;margin:8px 0}
+h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin:0 0 4px}
 .ok{color:var(--acc)} .bad{color:var(--red)}
 #msg{position:fixed;top:10px;right:10px;background:var(--acc);color:#08240f;padding:8px 14px;border-radius:8px;display:none;font-weight:600}
 </style></head><body>
@@ -53,24 +54,37 @@ canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--li
 
 <div class="page" id="p1" style="display:none">
 <div class="card">
-<label>WiFi network (for OSC and updates)</label><input id="ssid" placeholder="network name">
-<label>WiFi password</label><input id="wpass" type="password" placeholder="leave empty to keep current">
-<label>Mode</label><select id="mode">
+<h3>Mode</h3>
+<label>Operating mode</label><select id="mode" onchange="vis()">
 <option value="0">OSC / WiFi</option><option value="1">BLE keyboard</option>
 <option value="2">LoRa TX (remote)</option><option value="3">LoRa RX (gateway)</option></select>
-<label>Gateway output (LoRa RX)</label><select id="out">
-<option value="0">BLE keyboard</option><option value="1">OSC / WiFi</option></select>
+<div id="b_out"><label>Gateway output</label><select id="out" onchange="vis()">
+<option value="0">BLE keyboard</option><option value="1">OSC / WiFi</option></select></div>
+</div>
+<div class="card" id="b_radio">
+<h3>LoRa radio</h3>
 <div class="row"><div><label>Region</label><select id="region"></select></div>
 <div><label>Frequency</label><select id="chan"></select></div></div>
-<div class="row"><div><label>GO key (BLE)</label><select id="gokey"></select></div>
-<div><label>PANIC key (BLE)</label><select id="pankey"></select></div></div>
-<div class="row"><div><label>OSC target IP</label><input id="oscIp"></div>
-<div><label>OSC port</label><input id="oscPort" type="number"></div></div>
+</div>
+<div class="card" id="b_keys">
+<h3>Keyboard output</h3>
+<div class="row"><div><label>GO key</label><select id="gokey"></select></div>
+<div><label>PANIC key</label><select id="pankey"></select></div></div>
+</div>
+<div class="card" id="b_wifi">
+<h3>WiFi network</h3>
+<label>Network name</label><input id="ssid" placeholder="venue WiFi">
+<label>Password</label><input id="wpass" type="password" placeholder="leave empty to keep current">
+</div>
+<div class="card" id="b_osc">
+<h3>OSC target</h3>
+<div class="row"><div><label>Target IP</label><input id="oscIp"></div>
+<div><label>Port</label><input id="oscPort" type="number"></div></div>
 <div class="row"><div><label>GO address</label><input id="goAddr"></div>
 <div><label>PANIC address</label><input id="panAddr"></div></div>
+</div>
 <button class="btn" onclick="saveCfg()">Save</button>
 <div class="warn">Changing mode, region or frequency reboots the device.</div>
-</div>
 </div>
 
 <div class="page" id="p2" style="display:none">
@@ -103,15 +117,27 @@ document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));b
 function toast(t){let m=document.getElementById('msg');m.textContent=t;m.style.display='block';setTimeout(()=>m.style.display='none',2500);}
 async function act(a){await fetch('/api/'+a,{method:'POST'});toast(a.toUpperCase()+' sent');}
 function kv(k,v){return '<div><span>'+k+'</span>'+v+'</div>';}
+function show(id,on){document.getElementById(id).style.display=on?'':'none';}
+function vis(){let m=+document.getElementById('mode').value,o=+document.getElementById('out').value;
+show('b_out',m==3);
+show('b_radio',m==2||m==3);
+show('b_keys',m==1||(m==3&&o==0));
+show('b_wifi',m==0||(m==3&&o==1));
+show('b_osc',m==0||(m==3&&o==1));}
 async function poll(){try{
 let s=await(await fetch('/api/status')).json();
 document.getElementById('devline').textContent=s.name+' · '+s.ver;
-let h=kv('Mode',s.modeName)+kv('Link',s.link?'<b class="ok">OK</b>':'<b class="bad">no link</b>')
+let lora=s.mode==2||s.mode==3, bleOut=s.mode==1||(s.mode==3&&s.out==0), oscOut=s.mode==0||(s.mode==3&&s.out==1);
+let h=kv('Mode',s.modeName);
+if(lora)h+=kv('Link',s.link?'<b class="ok">OK</b>':'<b class="bad">no link</b>')
 +kv('Region / freq',s.region+' '+s.freq.toFixed(2)+' MHz'+(s.auto?' (auto)':''))
 +kv('Peer',s.peer||'—')+kv('RSSI / SNR',s.rssi+' dBm / '+s.snr.toFixed(1))
-+kv('Battery',s.batt>=0?s.batt+'%':'USB')+kv('BLE',s.ble?'<b class="ok">connected</b>':'—')
-+kv('WiFi',s.wifi?('<b class="ok">'+s.ip+'</b>'):'—')+kv('GO / PANIC keys',s.goKey+' / '+s.panicKey)
-+kv('TX / RX packets',s.tx+' / '+s.rx)+kv('Device ID',s.id);
++kv('TX / RX packets',s.tx+' / '+s.rx);
+if(bleOut)h+=kv('BLE',s.ble?'<b class="ok">connected</b>':'<b class="bad">waiting</b>')
++kv('GO / PANIC keys',s.goKey+' / '+s.panicKey);
+if(oscOut)h+=kv('WiFi',s.wifi?('<b class="ok">'+s.ip+'</b>'):'<b class="bad">no network</b>')
++kv('OSC target',s.osc);
+h+=kv('Battery',s.batt>=0?s.batt+'%':'USB')+kv('Device ID',s.id);
 document.getElementById('stat').innerHTML=h;}catch(e){}}
 async function loadCfg(){cfg=await(await fetch('/api/config')).json();
 let r=document.getElementById('region');r.innerHTML=cfg.regions.map((n,i)=>'<option value="'+i+'">'+n+'</option>').join('');
@@ -120,7 +146,8 @@ let ks=cfg.keys.map(k=>'<option value="'+k.c+'">'+k.n+'</option>').join('');
 document.getElementById('gokey').innerHTML=ks;document.getElementById('pankey').innerHTML=ks;
 for(let[i,v]of[['mode',cfg.mode],['out',cfg.out],['gokey',cfg.goKey],['pankey',cfg.panicKey],
 ['oscIp',cfg.oscIp],['oscPort',cfg.oscPort],['goAddr',cfg.go],['panAddr',cfg.panic],['ssid',cfg.ssid]])
-document.getElementById(i).value=v;}
+document.getElementById(i).value=v;
+vis();}
 let updUrl='';
 async function checkUpd(){document.getElementById('upline').textContent='Checking…';
 try{let r=await(await fetch('/api/otacheck')).json();
