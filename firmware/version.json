@@ -1,0 +1,5 @@
+{
+  "version": "v16.8",
+  "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
+  "notes": "Captive portal auto-opens the panel; QLab remote tab (transport, cue list, active cues)"
+}

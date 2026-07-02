@@ -4,9 +4,11 @@
 #include <Update.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <DNSServer.h>
 #include "web_html.h"
 
 static WebServer server(80);
+static DNSServer dns;   // captive portal: every AP lookup resolves to us
 static bool serverStarted = false;
 static bool apRaised = false;
 static bool webPausedBle = false;
@@ -267,6 +269,65 @@ static void handleOtaInstall() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// QLab bridge: the browser asks us over HTTP, we ask QLab over OSC and relay
+// the raw JSON reply back. All rendering happens in the phone's browser.
+// ---------------------------------------------------------------------------
+static void handleQlabCmd() {
+  String addr = server.arg("addr");
+  if (WiFi.status() != WL_CONNECTED || !addr.startsWith("/")) {
+    server.send(400, "application/json", "{\"err\":\"bad addr or no wifi\"}");
+    return;
+  }
+  OSCMessage msg(addr.c_str());
+  if (server.hasArg("s") && server.arg("s").length()) msg.add(server.arg("s").c_str());
+  if (server.hasArg("f")) msg.add(server.arg("f").toFloat());
+  udp.beginPacket(config.osc_ip, config.osc_port);
+  msg.send(udp);
+  udp.endPacket();
+  msg.empty();
+  server.send(200, "application/json", "{}");
+}
+
+static void handleQlabQuery() {
+  String addr = server.arg("addr");
+  if (WiFi.status() != WL_CONNECTED || !addr.startsWith("/")) {
+    server.send(400, "application/json", "{\"err\":\"bad addr or no wifi\"}");
+    return;
+  }
+  // Drop any stale datagrams, then ask.
+  while (udp.parsePacket() > 0) { udp.flush(); }
+  OSCMessage q(addr.c_str());
+  udp.beginPacket(config.osc_ip, config.osc_port);
+  q.send(udp);
+  udp.endPacket();
+  q.empty();
+
+  unsigned long start = millis();
+  while (millis() - start < 900) {
+    int size = udp.parsePacket();
+    if (size > 0) {
+      OSCMessage m;
+      while (size--) m.fill(udp.read());
+      char a[96] = {0};
+      if (!m.hasError()) m.getAddress(a);
+      if (strncmp(a, "/reply", 6) == 0 && m.isString(0)) {
+        int len = m.getDataLength(0);
+        char* buf = (char*)malloc(len + 2);
+        if (buf) {
+          m.getString(0, buf, len + 1);
+          server.send(200, "application/json", buf);
+          free(buf);
+          return;
+        }
+      }
+    }
+    delay(5);
+  }
+  // Note: big workspaces can exceed one UDP datagram; TCP OSC is the roadmap fix.
+  server.send(200, "application/json", "{\"err\":\"no reply from QLab\"}");
+}
+
 static void startServer() {
   server.on("/", HTTP_GET, []() {
     server.send_P(200, "text/html", WEB_PAGE);
@@ -278,6 +339,8 @@ static void startServer() {
   server.on("/api/spectrum", HTTP_POST, handleSpectrumPost);
   server.on("/api/go", HTTP_POST, []() { performGO(); server.send(200, "application/json", "{}"); });
   server.on("/api/panic", HTTP_POST, []() { performPanic(); server.send(200, "application/json", "{}"); });
+  server.on("/api/qlab/cmd", HTTP_POST, handleQlabCmd);
+  server.on("/api/qlab/query", HTTP_GET, handleQlabQuery);
   server.on("/api/otacheck", HTTP_GET, handleOtaCheck);
   server.on("/api/otainstall", HTTP_POST, handleOtaInstall);
   server.on("/api/reboot", HTTP_POST, []() {
@@ -290,7 +353,16 @@ static void startServer() {
     server.send(ok ? 200 : 500, "text/plain", ok ? "OK" : "FAIL");
     if (ok) { delay(400); ESP.restart(); }
   }, handleOtaUpload);
-  server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
+  server.onNotFound([]() {
+    if (apRaised) {
+      // Captive-portal probe (generate_204, hotspot-detect.html, ...):
+      // redirect to the panel so the join popup opens it automatically.
+      server.sendHeader("Location", "http://192.168.4.1/", true);
+      server.send(302, "text/plain", "");
+    } else {
+      server.send(404, "text/plain", "not found");
+    }
+  });
   server.begin();
   serverStarted = true;
   DBGLN("[WEB] server started");
@@ -309,12 +381,16 @@ void startWebSetup() {
     WiFi.mode(m == WIFI_OFF ? WIFI_AP : (wifi_mode_t)(m | WIFI_AP));
     WiFi.softAP(getUniqueName().c_str(), webApPass().c_str());
     apRaised = true;
+    // Captive portal: the OS probes a known URL right after joining; the DNS
+    // catch-all + the 302 in onNotFound make the panel pop up by itself.
+    dns.start(53, "*", WiFi.softAPIP());
   }
   if (!serverStarted) startServer();
 }
 
 void stopWebSetup() {
   if (apRaised) {
+    dns.stop();
     WiFi.softAPdisconnect(true);
     apRaised = false;
     if (WiFi.status() != WL_CONNECTED && controlMode != MODE_OSC_WIFI &&
@@ -331,5 +407,6 @@ void stopWebSetup() {
 void webLoop() {
   // Auto-serve on the venue LAN whenever the station link is up (OSC modes).
   if (!serverStarted && (WiFi.status() == WL_CONNECTED || apRaised)) startServer();
+  if (apRaised) dns.processNextRequest();
   if (serverStarted) server.handleClient();
 }

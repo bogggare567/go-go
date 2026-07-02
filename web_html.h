@@ -31,6 +31,13 @@ input,select{width:100%;background:#0c1320;border:1px solid var(--line);color:va
 canvas{width:100%;background:#05080e;border-radius:8px;border:1px solid var(--line)}
 .warn{color:var(--sel);font-size:13px;margin:8px 0}
 h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin:0 0 4px}
+.tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.tgrid .btn{margin:0;padding:12px 4px;font-size:14px}
+.cue{display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid #1e2735;font-size:14px}
+.cue .num{color:var(--sel);min-width:34px;font-family:monospace}
+.cue .nm{flex:1}
+.cue button{background:#0c1320;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:4px 10px;cursor:pointer}
+.gobig{width:100%;padding:26px;font-size:34px;letter-spacing:4px}
 .ok{color:var(--acc)} .bad{color:var(--red)}
 #msg{position:fixed;top:10px;right:10px;background:var(--acc);color:#08240f;padding:8px 14px;border-radius:8px;display:none;font-weight:600}
 </style></head><body>
@@ -41,6 +48,7 @@ h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc)
 <button class="on" onclick="tab(0,this)">Status</button>
 <button onclick="tab(1,this)">Settings</button>
 <button onclick="tab(2,this)">Spectrum</button>
+<button onclick="tab(4,this)">QLab</button>
 <button onclick="tab(3,this)">Firmware</button>
 </div>
 
@@ -92,6 +100,37 @@ h3{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc)
 <canvas id="spec" width="640" height="220"></canvas>
 <div class="warn">Sweeping pauses the radio link. It reconnects within a second after stop.</div>
 <button class="btn" id="sw" onclick="spec()">Start sweep</button>
+</div>
+</div>
+
+<div class="page" id="p4" style="display:none">
+<div class="card">
+<button class="btn gobig" onclick="qcmd('/go')">GO</button>
+<div class="tgrid">
+<button class="btn red" onclick="qcmd('/panic')">Panic</button>
+<button class="btn ghost" onclick="qcmd('/pause')">Pause</button>
+<button class="btn ghost" onclick="qcmd('/resume')">Resume</button>
+<button class="btn ghost" onclick="qcmd('/stop')">Stop</button>
+<button class="btn ghost" onclick="qcmd('/playhead/previous')">&#9650; Prev</button>
+<button class="btn ghost" onclick="qcmd('/playhead/next')">&#9660; Next</button>
+<button class="btn ghost" onclick="qcmd('/load')">Load</button>
+<button class="btn ghost" onclick="qcmd('/reset')">Reset</button>
+</div>
+</div>
+<div class="card">
+<h3>Cue list</h3>
+<div id="qcues" class="warn">Press Refresh to load the workspace.</div>
+<button class="btn ghost" onclick="qcues()">Refresh</button>
+</div>
+<div class="card">
+<h3>Active cues</h3>
+<div id="qactive">&mdash;</div>
+</div>
+<div class="card">
+<h3>Connection</h3>
+<div class="warn">Works in OSC mode: the board relays commands to the QLab target configured in Settings. If the workspace has a passcode, connect first.</div>
+<div class="row"><div><input id="qpass" placeholder="passcode"></div>
+<div><button class="btn ghost" style="margin-top:0" onclick="qconnect()">Connect</button></div></div>
 </div>
 </div>
 
@@ -194,6 +233,28 @@ x.fillStyle='#8fa1b8';x.font='12px monospace';
 x.fillText(s.from.toFixed(1),4,215);x.fillText(s.to.toFixed(1),600,215);
 x.fillText(s.freq.toFixed(2)+' MHz',Math.min(mx+4,540),22);}catch(e){}
 setTimeout(drawLoop,400);}
+async function qcmd(a){await fetch('/api/qlab/cmd?addr='+encodeURIComponent(a),{method:'POST'});
+toast('QLab '+a);setTimeout(qactive,600);}
+async function qconnect(){let p=document.getElementById('qpass').value;
+await fetch('/api/qlab/cmd?addr=/connect&s='+encodeURIComponent(p),{method:'POST'});toast('connect sent');}
+function walkCues(list,out,depth){for(let c of list){out.push({d:depth,n:c.number||'',m:c.listName||c.name||'',t:c.type||''});
+if(c.cues)walkCues(c.cues,out,depth+1);}}
+async function qcues(){let el=document.getElementById('qcues');el.textContent='Loading…';
+try{let r=await(await fetch('/api/qlab/query?addr=/cueLists')).json();
+if(r.err){el.textContent=r.err;return;}
+let flat=[];walkCues(r.data||[],flat,0);
+el.innerHTML=flat.map(c=>'<div class="cue" style="padding-left:'+(6+c.d*14)+'px">'+
+'<span class="num">'+c.n+'</span><span class="nm">'+c.m+'</span>'+
+(c.n?'<button onclick="qsel(\''+c.n+'\')">&#8982;</button><button onclick="qgo(\''+c.n+'\')">&#9654;</button>':'')+
+'</div>').join('')||'empty';}catch(e){el.textContent='failed';}}
+function qsel(n){qcmd('/playhead/'+n);}
+function qgo(n){qcmd('/cue/'+n+'/start');}
+async function qactive(){try{
+let r=await(await fetch('/api/qlab/query?addr=/runningOrPausedCues')).json();
+let el=document.getElementById('qactive');
+if(r.err||!r.data){el.textContent='\u2014';return;}
+el.innerHTML=r.data.map(c=>'<div class="cue"><span class="num">'+(c.number||'')+'</span><span class="nm">'+(c.listName||c.name||'')+'</span><span>'+(c.type||'')+'</span></div>').join('')||'\u2014';}catch(e){}}
+setInterval(()=>{if(document.getElementById('p4').style.display!='none')qactive();},2500);
 async function ota(){let f=document.getElementById('fw').files[0];if(!f)return toast('choose a .bin');
 document.getElementById('otamsg').textContent='Uploading… do not power off';
 let d=new FormData();d.append('fw',f);
