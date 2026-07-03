@@ -311,37 +311,62 @@ static void handleScan() {
   server.send(200, "application/json", j);
 }
 
-static unsigned long joinStart = 0;
+// Join state machine, modeled on WiFiManager's connectWifi():
+//  - only WL_CONNECTED / WL_CONNECT_FAILED end an attempt early; a transient
+//    NO_SSID_AVAIL is NOT a failure (the first off-channel scan often misses)
+//  - HTTP/DNS are not serviced during an attempt window: the phone hammering
+//    our AP is exactly what starves the station's scan (WM blocks its portal
+//    during connect for the same reason, just implicitly)
+//  - on final failure the STA is turned off to stabilize the AP for a retry
+enum JoinPhase : uint8_t { JOIN_IDLE, JOIN_KICKOFF, JOIN_WAIT, JOIN_GAP };
+static JoinPhase joinPhase = JOIN_IDLE;
+static unsigned long joinPhaseAt = 0;
 static unsigned long joinOkAt = 0;
 static uint8_t joinTries = 0;
 static bool joinFailed = false;
+static int lastDiscReason = 0;
+
+static void onWifiDisc(WiFiEvent_t, WiFiEventInfo_t info) {
+  lastDiscReason = info.wifi_sta_disconnected.reason;
+}
 
 static void handleJoin() {
   safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
   safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
   saveWifiCreds();
-  WiFi.mode(WIFI_AP_STA);  // keep our AP alive while trying the venue network
-  WiFi.setSleep(false);
-  WiFi.disconnect();
-  delay(60);
-  WiFi.begin(wifiSsid, wifiPass);
+  static bool evRegistered = false;
+  if (!evRegistered) {
+    WiFi.onEvent(onWifiDisc, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    evRegistered = true;
+  }
   joinAttempt = true;
   joinFailed = false;
-  joinTries = 1;
-  joinStart = millis();
+  joinTries = 0;
+  lastDiscReason = 0;
   joinOkAt = 0;
+  joinPhase = JOIN_KICKOFF;
+  joinPhaseAt = millis();
+  // Respond BEFORE the radio work starts so the page gets its answer.
   server.send(200, "application/json", "{}");
 }
 
+static const char* discReasonText(int r) {
+  switch (r) {
+    case 2: case 202: return "auth failed - check the password";
+    case 15: case 204: return "handshake timeout - wrong password?";
+    case 201: return "network not found - is it 2.4 GHz?";
+    case 203: return "association failed";
+    default: return "";
+  }
+}
+
 static void handleJoinStatus() {
-  // "fail" only after the retry manager in webLoop() gives up: with the AP
-  // parked on another channel the FIRST station scan often misses the SSID,
-  // so a single WL_NO_SSID_AVAIL must not be treated as a real failure.
   String state = "connecting";
   if (!joinAttempt && !joinFailed) state = "idle";
   else if (WiFi.status() == WL_CONNECTED) state = "ok";
   else if (joinFailed) state = "fail";
   String j = "{\"state\":\"" + state + "\",\"try\":" + String((int)joinTries) +
+             ",\"reason\":\"" + String(discReasonText(lastDiscReason)) + "\"" +
              ",\"ip\":\"" +
              (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\"}";
   server.send(200, "application/json", j);
@@ -509,31 +534,60 @@ void stopWebSetup() {
 void webLoop() {
   // Auto-serve on the venue LAN whenever the station link is up (OSC modes).
   if (!serverStarted && (WiFi.status() == WL_CONNECTED || apRaised)) startServer();
-  if (apRaised) dns.processNextRequest();
-  if (serverStarted) server.handleClient();
+  // Radio focus during a join attempt: servicing the phone's HTTP polling
+  // starves the station's off-channel scans (WiFiManager's portal blocks
+  // here too). DNS/HTTP resume in the gaps between attempts.
+  bool radioBusy = (joinPhase == JOIN_WAIT || joinPhase == JOIN_KICKOFF);
+  if (apRaised && !radioBusy) dns.processNextRequest();
+  if (serverStarted && !radioBusy) server.handleClient();
 
-  // Join manager: up to 3 attempts of 10 s each before declaring failure.
+  // Join manager (see the comment block above handleJoin).
   if (joinAttempt && WiFi.status() != WL_CONNECTED) {
-    wl_status_t st = WiFi.status();
-    bool windowOver = millis() - joinStart > 10000;
-    bool hardFail = (st == WL_CONNECT_FAILED);
-    if (windowOver || hardFail) {
-      if (joinTries < 3) {
-        joinTries++;
-        WiFi.disconnect();
-        delay(60);
-        WiFi.begin(wifiSsid, wifiPass);
-        joinStart = millis();
-      } else {
-        joinAttempt = false;
-        joinFailed = true;
-      }
+    unsigned long inPhase = millis() - joinPhaseAt;
+    switch (joinPhase) {
+      case JOIN_KICKOFF:
+        if (inPhase > 300) {  // let the HTTP response flush first
+          joinTries++;
+          WiFi.mode(WIFI_AP_STA);
+          WiFi.setSleep(false);
+          WiFi.disconnect();
+          delay(100);
+          WiFi.begin(wifiSsid, wifiPass);
+          joinPhase = JOIN_WAIT;
+          joinPhaseAt = millis();
+        }
+        break;
+      case JOIN_WAIT:
+        if (WiFi.status() == WL_CONNECT_FAILED || inPhase > 12000) {
+          joinPhase = JOIN_GAP;  // serve HTTP again so the page sees progress
+          joinPhaseAt = millis();
+        }
+        break;
+      case JOIN_GAP:
+        if (inPhase > 1500) {
+          if (joinTries < 3) {
+            joinPhase = JOIN_KICKOFF;
+            joinPhaseAt = millis();
+          } else {
+            joinAttempt = false;
+            joinFailed = true;
+            joinPhase = JOIN_IDLE;
+            // WiFiManager does this too: STA off stabilizes the AP so the
+            // user can comfortably retry from the page.
+            WiFi.disconnect();
+            WiFi.mode(WIFI_AP);
+          }
+        }
+        break;
+      default:
+        break;
     }
   }
 
   // Onboarding finish is autonomous: channel switching may kick the phone
   // off our AP, so the reboot must not depend on the page's JavaScript.
   if (joinAttempt && WiFi.status() == WL_CONNECTED) {
+    joinPhase = JOIN_IDLE;
     if (!joinOkAt) joinOkAt = millis();
     if (millis() - joinOkAt > 5000) {
       joinAttempt = false;

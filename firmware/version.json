@@ -1,5 +1,5 @@
 {
-  "version": "v16.12",
+  "version": "v16.13",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "Reliable WiFi join (3 retries), soundkorb brand styling with embedded Unbounded"
+  "notes": "WiFi join rewritten to match WiFiManager semantics: radio focus, patient wait, precise failure reasons"
 }

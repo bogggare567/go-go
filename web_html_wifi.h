@@ -73,17 +73,17 @@ function pick(s){document.getElementById('ssid').value=s;document.getElementById
 async function join(){let f=new FormData();
 f.append('ssid',document.getElementById('ssid').value);
 f.append('pass',document.getElementById('pass').value);
-document.getElementById('st').textContent='Connecting…';
+document.getElementById('st').textContent='Connecting… the device radio is busy, this page may pause for ~15 s.';
 await fetch('/api/join',{method:'POST',body:f});
-clearInterval(timer);timer=setInterval(poll,1000);}
+clearInterval(timer);timer=setInterval(poll,1500);}
 async function poll(){try{
 let r=await(await fetch('/api/joinstatus')).json();
-if(r.state=='connecting')document.getElementById('st').textContent='Connecting… attempt '+r.try+'/3';
+if(r.state=='connecting')document.getElementById('st').textContent='Connecting… attempt '+r.try+'/3 (page may pause while the radio works)';
 if(r.state=='ok'){clearInterval(timer);
 document.getElementById('st').innerHTML='<b class="ok">Connected!</b> Control panel: <b>http://'+r.ip+
 '</b><br>The device reboots by itself in a few seconds — rejoin your network and open that address.';}
 else if(r.state=='fail'){clearInterval(timer);
-document.getElementById('st').innerHTML='<b class="bad">Failed</b> — check the password and try again.';}
+document.getElementById('st').innerHTML='<b class="bad">Failed</b> — '+(r.reason||'check the password and try again.');}
 }catch(e){}}
 async function loadOsc(){try{let c=await(await fetch('/api/config')).json();
 for(let[i,v]of[['oscIp',c.oscIp],['oscPort',c.oscPort],['goAddr',c.go],['panAddr',c.panic]])
