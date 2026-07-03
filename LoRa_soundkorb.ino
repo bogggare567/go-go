@@ -156,8 +156,73 @@ void setup() {
   startBootAnimation();
 }
 
+#if DEBUG_SERIAL
+// Debug console (DEBUG_SERIAL builds only): drive the device over USB for
+// hardware-in-the-loop testing without touching the button.
+//   g=GO  p=PANIC  w=Web Setup  W=WiFi onboarding  s=status  r=reboot
+void debugConsole() {
+  while (Serial.available()) {
+    char c = (char)Serial.read();
+    switch (c) {
+      case 'g': performGO(); break;
+      case 'p': performPanic(); break;
+      case 'w': startWebSetup(); setScreen(SCREEN_WEB_SETUP); break;
+      case 'W': startWifiOnboarding(); setScreen(SCREEN_WEB_SETUP); break;
+      case 'r': ESP.restart(); break;
+      case 's':
+        Serial.printf("[DBG] mode=%s screen=%d freq=%.2f auto=%d region=%s ble=%d wifi=%d ip=%s heap=%u\n",
+                      modeLabel(controlMode), (int)currentScreen, radioCfg.freq,
+                      (int)freqAuto, currentRegion().name, (int)bleConnected,
+                      WiFi.status() == WL_CONNECTED, WiFi.localIP().toString().c_str(),
+                      (unsigned)ESP.getFreeHeap());
+        break;
+      case 'e': {  // sweep the LoRa band once and dump RSSI per grid bin
+        bool wasInit = loraInitialized;
+        if (!wasInit) initLoRa();
+        Serial.printf("[SPECTRUM] region=%s %.1f-%.1f MHz\n",
+                      currentRegion().name, currentRegion().scanFrom, currentRegion().scanTo);
+        for (uint8_t i = 0; i < gridCount(); i++) {
+          lora.standby();
+          lora.setFrequency(gridFreq(i));
+          lora.startReceive();
+          float worst = -200.0f;
+          for (int k = 0; k < 3; k++) {
+            delay(4);
+            float r = lora.getRSSI(false);
+            if (r > worst) worst = r;
+          }
+          Serial.printf("[SPECTRUM] %.2f MHz  %.0f dBm\n", gridFreq(i), worst);
+        }
+        lora.standby();
+        lora.setFrequency(radioCfg.freq);
+        if (wasInit) lora.startReceive(); else stopLoRa();
+        break;
+      }
+      case 'q': {  // scan 2.4 GHz networks and dump over serial
+        bool wifiWasOff = (WiFi.getMode() == WIFI_OFF);
+        Serial.println("[WSCAN] scanning...");
+        int n = WiFi.scanNetworks();
+        for (int i = 0; i < n; i++) {
+          Serial.printf("[WSCAN] %-24s ch%-2d %d dBm %s\n",
+                        WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i),
+                        WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "open" : "sec");
+        }
+        WiFi.scanDelete();
+        if (wifiWasOff) WiFi.mode(WIFI_OFF);
+        break;
+      }
+      default: break;
+    }
+  }
+}
+#endif
+
 void loop() {
   unsigned long now = millis();
+
+#if DEBUG_SERIAL
+  debugConsole();
+#endif
 
   webLoop();
 

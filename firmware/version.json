@@ -1,5 +1,5 @@
 {
-  "version": "v16.13",
+  "version": "v16.14",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "WiFi join rewritten to match WiFiManager semantics: radio focus, patient wait, precise failure reasons"
+  "notes": "Full audit: OTA abort recovery, clean boot, serial debug console for HIL testing"
 }

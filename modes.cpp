@@ -26,15 +26,19 @@ bool initSelectedMode(bool allowWifiPortal) {
   }
 
   if (controlMode == MODE_BLE_HID) {
-    WiFi.disconnect(true, true);
-    WiFi.mode(WIFI_OFF);
+    if (WiFi.getMode() != WIFI_OFF) {
+      WiFi.disconnect(true, true);
+      WiFi.mode(WIFI_OFF);
+    }
     startBLEMode();
     return true;
   }
 
   if (controlMode == MODE_LORA_REMOTE) {
-    WiFi.disconnect(true, true);
-    WiFi.mode(WIFI_OFF);
+    if (WiFi.getMode() != WIFI_OFF) {
+      WiFi.disconnect(true, true);
+      WiFi.mode(WIFI_OFF);
+    }
     bool ok = initLoRa();
     linkOK = false;
     lastPingTime = 0;

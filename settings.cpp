@@ -23,8 +23,8 @@ void loadOscConfig() {
   String addr = prefs.getString("addr", "/go");
   String panic = prefs.getString("panic", "/panic");
   int port = prefs.getInt("port", 53000);
-  String ssid = prefs.getString("ssid", "");
-  String wpass = prefs.getString("wpass", "");
+  String ssid = prefs.isKey("ssid") ? prefs.getString("ssid", "") : "";
+  String wpass = prefs.isKey("wpass") ? prefs.getString("wpass", "") : "";
   prefs.end();
   safeCopy(wifiSsid, ssid.c_str(), sizeof(wifiSsid));
   safeCopy(wifiPass, wpass.c_str(), sizeof(wifiPass));

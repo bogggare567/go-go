@@ -82,8 +82,10 @@ class BleHIDCallbacks : public NimBLEServerCallbacks {
 void startBLEMode() {
   if (bleStarted) return;
 
-  WiFi.disconnect(true, true);
-  WiFi.mode(WIFI_OFF);
+  if (WiFi.getMode() != WIFI_OFF) {
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
+  }
 
   String deviceName = getUniqueName();
   DBGLN("[BLE] start");

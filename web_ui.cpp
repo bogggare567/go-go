@@ -197,11 +197,15 @@ static void handleSpectrumPost() {
 static void handleOtaUpload() {
   HTTPUpload& up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
+    // A previous aborted session would make begin() fail forever: clear it.
+    if (Update.isRunning()) Update.abort();
     Update.begin(UPDATE_SIZE_UNKNOWN);
   } else if (up.status == UPLOAD_FILE_WRITE) {
     Update.write(up.buf, up.currentSize);
   } else if (up.status == UPLOAD_FILE_END) {
     Update.end(true);
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
   }
 }
 
@@ -271,6 +275,7 @@ static void handleOtaInstall() {
   size_t written = Update.writeStream(http.getStream());
   http.end();
   bool ok = (written == (size_t)len) && Update.end(true);
+  if (!ok && Update.isRunning()) Update.abort();  // unblock future attempts
   server.send(ok ? 200 : 500, "application/json",
               ok ? "{\"ok\":true}" : "{\"err\":\"flash failed\"}");
   if (ok) {
