@@ -44,13 +44,29 @@ claim the `gogo` hostname — could suffix with the device ID).
 
 ---
 
-## 3. ~~Password-protect the web panel~~ — done in v16.15 (PIN, not a full password)
+## 3. Password-protect the web panel in venue-network (STA) mode
 
-HTTP Basic Auth now gates the panel (login `gogo`, default PIN `0000`,
-changeable in Settings, stored in Preferences). It's a convenience PIN over
-plain HTTP, not a real security boundary — see `SECURITY.md`. A good
-follow-up: rate-limit failed attempts, or move to a real password + HTTPS
-(self-signed cert) for anyone who needs stronger guarantees.
+**Where:** `web_ui.cpp` (all `server.on(...)` handlers).
+
+**What's there now:** the provisioning AP has a fixed WiFi password
+(`password123`), but once the board is on the venue's own network, the panel
+itself (status, GO/PANIC buttons, all settings, OTA update) is open to
+anyone on that network. Documented as a known limitation in `SECURITY.md`.
+
+**Tried and reverted (v16.15 → v16.16):** HTTP Basic Auth with a PIN (login
+`gogo`, default `0000`) was added, then removed at the owner's request —
+it added friction (a login prompt on every device that opens the panel,
+including `gogo.local`) without buying much on a network you already trust
+enough to run a wireless GO/PANIC remote on. If you pick this up again,
+make it **opt-in and off by default** (a toggle in Settings), so the
+default experience stays frictionless.
+
+**What to add:** simple HTTP Basic Auth (`server.requireAuthentication(...)`
+in the ESP32 `WebServer` library) gated behind a password set once in the
+panel and stored in Preferences (`system` namespace), defaulting to *off*.
+Needs a "set/change panel password" field in the settings page and a way to
+reset it from the on-device menu (factory-reset already exists — hook into
+that).
 
 ---
 
@@ -98,9 +114,10 @@ saving invalid values. Bonus: same for the go/panic OSC address fields
 (should start with `/`).
 
 **Note (v16.15):** the panel's Settings page is now split into per-mode
-cards (only the OSC card shows in OSC mode) and there's a new PIN field —
-if you pick this issue up, keep that layout, just add validation to the
-existing `oscIp`/`oscPort` inputs.
+cards (only the OSC card shows in OSC mode) — if you pick this issue up,
+keep that layout, just add validation to the existing `oscIp`/`oscPort`
+inputs. The WiFi onboarding page (`web_html_wifi.h`) also collects
+OSC target fields now (v16.16), so validate there too.
 
 **Good for:** someone starting with the web panel's request-handling code —
 narrow, testable without any radio/BLE hardware quirks.

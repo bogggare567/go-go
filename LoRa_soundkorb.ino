@@ -28,7 +28,6 @@ OscConfig config;
 RadioConfig radioCfg;
 char wifiSsid[33] = "";
 char wifiPass[65] = "";
-char webPin[9] = "0000";
 
 uint8_t gatewayOutputMode = OUT_BLE;
 uint8_t selectedOutputMode = OUT_BLE;

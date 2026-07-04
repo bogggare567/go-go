@@ -690,7 +690,7 @@ void drawWebSetup() {
     drawCenteredText(("pass: " + webApPass()).c_str(), 36, 1);
     drawCenteredText(webUrl().c_str(), 46, 1);
   } else {
-    drawCenteredText(("PIN: " + String(webPin)).c_str(), 14, 1);
+    drawCenteredText("On your network:", 14, 1);
     drawCenteredText(webUrl().c_str(), 27, 1);
     drawCenteredText("or gogo.local", 39, 1);
   }

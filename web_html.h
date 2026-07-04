@@ -69,7 +69,6 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 <option value="2">LoRa TX (remote)</option><option value="3">LoRa RX (gateway)</option></select>
 <div id="b_out"><label>Gateway output</label><select id="out" onchange="vis()">
 <option value="0">BLE keyboard</option><option value="1">OSC / WiFi</option></select></div>
-<label>Panel PIN (login gogo, default 0000)</label><input id="pin" placeholder="change PIN — min 4 digits">
 </div>
 <div class="card" id="b_radio">
 <h3>LoRa radio</h3>
@@ -107,6 +106,14 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 
 <div class="page" id="p4" style="display:none">
 <div class="card">
+<h3>Connection</h3>
+<div class="warn">Needs OSC mode with the target set in Settings — target: <b id="qtarget">&mdash;</b>. If the QLab workspace has a passcode, connect below first.</div>
+<div class="row"><div><input id="qpass" placeholder="passcode (if any)"></div>
+<div><button class="btn ghost" style="margin-top:0" onclick="qconnect()">Connect</button></div></div>
+<button class="btn ghost" onclick="qtest()">Test connection</button>
+<div id="qtestout" class="warn"></div>
+</div>
+<div class="card">
 <button class="btn gobig" onclick="qcmd('/go')">GO</button>
 <div class="tgrid">
 <button class="btn red" onclick="qcmd('/panic')">Panic</button>
@@ -127,14 +134,6 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 <div class="card">
 <h3>Active cues</h3>
 <div id="qactive">&mdash;</div>
-</div>
-<div class="card">
-<h3>Connection</h3>
-<div class="warn">Works in OSC mode: the board relays commands to the QLab target configured in Settings. If the workspace has a passcode, connect first.</div>
-<div class="row"><div><input id="qpass" placeholder="passcode"></div>
-<div><button class="btn ghost" style="margin-top:0" onclick="qconnect()">Connect</button></div></div>
-<button class="btn ghost" onclick="qtest()">Test connection</button>
-<div id="qtestout" class="warn"></div>
 </div>
 </div>
 
@@ -181,7 +180,8 @@ if(bleOut)h+=kv('BLE',s.ble?'<b class="ok">connected</b>':'<b class="bad">waitin
 if(oscOut)h+=kv('WiFi',s.wifi?('<b class="ok">'+s.ip+'</b>'):'<b class="bad">no network</b>')
 +kv('OSC target',s.osc);
 h+=kv('Battery',s.batt>=0?s.batt+'%':'USB')+kv('Device ID',s.id);
-document.getElementById('stat').innerHTML=h;}catch(e){}}
+document.getElementById('stat').innerHTML=h;
+let qt=document.getElementById('qtarget');if(qt)qt.textContent=s.osc;}catch(e){}}
 async function loadCfg(){cfg=await(await fetch('/api/config')).json();
 let r=document.getElementById('region');r.innerHTML=cfg.regions.map((n,i)=>'<option value="'+i+'">'+n+'</option>').join('');
 r.value=cfg.region;fillChan();
@@ -219,8 +219,6 @@ f.append(i,document.getElementById(i).value);
 f.append('chan',document.getElementById('chan').value);
 let ns=document.getElementById('ssid').value,np=document.getElementById('wpass').value;
 if(ns!=cfg.ssid||np){f.append('ssid',ns);f.append('wpass',np);}
-let pv=document.getElementById('pin').value;
-if(pv&&pv.length>=4)f.append('pin',pv);
 let r=await(await fetch('/api/config',{method:'POST',body:f})).json();
 toast(r.reboot?'Saved — rebooting…':'Saved');}
 async function spec(){specOn=!specOn;
@@ -240,7 +238,7 @@ x.fillText(s.from.toFixed(1),4,215);x.fillText(s.to.toFixed(1),600,215);
 x.fillText(s.freq.toFixed(2)+' MHz',Math.min(mx+4,540),22);}catch(e){}
 setTimeout(drawLoop,400);}
 async function qcmd(a){await fetch('/api/qlab/cmd?addr='+encodeURIComponent(a),{method:'POST'});
-toast('QLab '+a);setTimeout(qactive,600);}
+toast('QLab '+a);}
 async function qtest(){let o=document.getElementById('qtestout');o.textContent='Testing\u2026';
 try{let r=await(await fetch('/api/qlab/query?addr=/version')).json();
 if(r.err)o.textContent='No reply: '+r.err+' \u2014 check OSC target IP/port (Settings) and QLab \u2192 Settings \u2192 Network \u2192 OSC access.';

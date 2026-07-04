@@ -14,4 +14,3 @@ void savePairedRxId(uint32_t id);
 void loadPairedRxId();
 void saveKeymap();
 void saveWifiCreds();
-void saveWebPin();

@@ -29,6 +29,9 @@ h1 b{color:var(--acc)}
 .showp input{width:auto;margin:0}
 .links{display:flex;justify-content:space-between;padding:12px 2px;color:var(--acc);font-size:14px}
 .links span{cursor:pointer}
+label{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px}
+.card input{width:100%;background:#0c1320;border:1px solid var(--line);color:var(--tx);padding:10px;border-radius:8px;font-size:15px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #st{margin-top:12px;font-size:14px;color:var(--sel)}
 .ok{color:var(--ok)} .bad{color:var(--red)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--mut);border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:8px}
@@ -41,6 +44,15 @@ a{color:var(--acc)}
 <div class="card">
 <div id="nets"><div class="net" style="cursor:default"><span class="spin"></span><span class="nm sub" style="margin:0">Ищу сети&hellip;</span></div></div>
 <div class="links"><span onclick="scan(1)">&#8635; Обновить список</span><span onclick="manual()">Ввести имя вручную</span></div>
+</div>
+
+<div class="card">
+<h3 style="font-family:'Unbounded',sans-serif;font-weight:400;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--acc);margin:10px 0 4px">QLab / OSC (необязательно)</h3>
+<div class="row2"><div><label>IP компьютера</label><input id="oscIp" placeholder="192.168.1.10"></div>
+<div><label>Порт</label><input id="oscPort" type="number" placeholder="53000"></div></div>
+<div class="row2"><div><label>Адрес GO</label><input id="goAddr" placeholder="/go"></div>
+<div><label>Адрес PANIC</label><input id="panAddr" placeholder="/panic"></div></div>
+<div class="sub" style="margin-top:8px">Можно заполнить сразу или позже в панели — сохранится вместе с подключением к сети.</div>
 </div>
 
 <script>
@@ -85,6 +97,7 @@ async function join(){let ssid=curSsid||((document.getElementById('mssid')||{}).
 if(!ssid)return;
 let f=new FormData();f.append('ssid',ssid);
 f.append('pass',document.getElementById('pass').value);
+for(let i of['oscIp','oscPort','goAddr','panAddr']){let el=document.getElementById(i);if(el&&el.value)f.append(i,el.value);}
 document.getElementById('st').innerHTML='<span class="spin"></span>Подключаюсь&hellip; радио занято, страница может замереть на ~15 с.';
 await fetch('/api/join',{method:'POST',body:f});
 clearInterval(timer);timer=setInterval(poll,1500);}
@@ -95,9 +108,12 @@ if(r.state=='connecting')st.innerHTML='<span class="spin"></span>Подключ�
 if(r.state=='ok'){clearInterval(timer);
 st.innerHTML='<b class="ok">Подключено!</b> Панель управления:<br>'+
 '<a href="http://gogo.local">http://gogo.local</a> или <b>http://'+r.ip+'</b>'+
-'<br>Плата перезагрузится сама — вернитесь в свою сеть и откройте адрес. PIN панели: gogo / 0000.';}
+'<br>Плата перезагрузится сама — вернитесь в свою сеть и откройте адрес.';}
 else if(r.state=='fail'){clearInterval(timer);
 st.innerHTML='<b class="bad">Не удалось</b> — '+(r.reason||'проверьте пароль и попробуйте ещё раз.');}
 }catch(e){}}
-scan(0);
+async function loadOsc(){try{let c=await(await fetch('/api/config')).json();
+for(let[i,v]of[['oscIp',c.oscIp],['oscPort',c.oscPort],['goAddr',c.go],['panAddr',c.panic]])
+{let el=document.getElementById(i);if(el&&!el.value)el.value=v;}}catch(e){}}
+loadOsc();scan(0);
 </script></body></html>)rawliteral";

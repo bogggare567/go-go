@@ -34,16 +34,6 @@ String webUrl() {
   return "";
 }
 
-// PIN gate for the panel (user "gogo", default PIN 0000, changeable in
-// Settings). The onboarding page and captive endpoints stay open: they run
-// on our own AP and joining a network must stay frictionless.
-static bool guard() {
-  if (wifiOnboarding) return true;
-  if (server.authenticate("gogo", webPin)) return true;
-  server.requestAuthentication(BASIC_AUTH, "GO-GO");
-  return false;
-}
-
 // ---------------------------------------------------------------------------
 // JSON helpers (tiny hand-rolled builder; no external dependencies)
 // ---------------------------------------------------------------------------
@@ -57,7 +47,6 @@ static String jsonEscape(const char* s) {
 }
 
 static void handleStatus() {
-  if (!guard()) return;
   bool wifi = WiFi.status() == WL_CONNECTED;
   String peer = lastPeerId ? shortIdString(lastPeerId) : "";
   String j = "{";
@@ -87,7 +76,6 @@ static void handleStatus() {
 }
 
 static void handleConfigGet() {
-  if (!guard()) return;
   String j = "{";
   j += "\"mode\":" + String((int)controlMode) + ",";
   j += "\"out\":" + String((int)gatewayOutputMode) + ",";
@@ -122,7 +110,6 @@ static void handleConfigGet() {
 }
 
 static void handleConfigPost() {
-  if (!guard()) return;
   bool reboot = false;
 
   // Live-applied settings: OSC target + BLE keys.
@@ -135,11 +122,6 @@ static void handleConfigPost() {
   if (server.hasArg("gokey")) goKeyCode = (uint8_t)server.arg("gokey").toInt();
   if (server.hasArg("pankey")) panicKeyCode = (uint8_t)server.arg("pankey").toInt();
   saveKeymap();
-
-  if (server.hasArg("pin") && server.arg("pin").length() >= 4) {
-    safeCopy(webPin, server.arg("pin").c_str(), sizeof(webPin));
-    saveWebPin();
-  }
 
   // WiFi network: sent only when the user actually changed it (see the JS).
   if (server.hasArg("ssid")) {
@@ -184,7 +166,6 @@ static void handleConfigPost() {
 }
 
 static void handleSpectrumGet() {
-  if (!guard()) return;
   String j = "{\"active\":" + String(currentScreen == SCREEN_SPECTRUM ? "true" : "false");
   j += ",\"from\":" + String(currentRegion().scanFrom, 1);
   j += ",\"to\":" + String(currentRegion().scanTo, 1);
@@ -199,7 +180,6 @@ static void handleSpectrumGet() {
 }
 
 static void handleSpectrumPost() {
-  if (!guard()) return;
   // Mirrors the on-device behavior: the OLED shows the sweep too.
   if (server.arg("on") == "1") {
     if (currentScreen != SCREEN_SPECTRUM) {
@@ -218,7 +198,6 @@ static void handleSpectrumPost() {
 static void handleOtaUpload() {
   HTTPUpload& up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
-    if (!wifiOnboarding && !server.authenticate("gogo", webPin)) return;
     // A previous aborted session would make begin() fail forever: clear it.
     if (Update.isRunning()) Update.abort();
     Update.begin(UPDATE_SIZE_UNKNOWN);
@@ -247,7 +226,6 @@ static String jsonField(const String& src, const char* key) {
 }
 
 static void handleOtaCheck() {
-  if (!guard()) return;
   if (WiFi.status() != WL_CONNECTED) {
     server.send(200, "application/json", "{\"err\":\"no internet (STA not connected)\"}");
     return;
@@ -274,7 +252,6 @@ static void handleOtaCheck() {
 }
 
 static void handleOtaInstall() {
-  if (!guard()) return;
   String url = server.arg("url");
   if (WiFi.status() != WL_CONNECTED || !url.startsWith("https://")) {
     server.send(400, "application/json", "{\"err\":\"bad url or no internet\"}");
@@ -363,6 +340,13 @@ static void handleJoin() {
   safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
   safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
   saveWifiCreds();
+  if (server.hasArg("oscIp") && server.arg("oscIp").length()) {
+    safeCopy(config.osc_ip, server.arg("oscIp").c_str(), sizeof(config.osc_ip));
+    if (server.hasArg("oscPort") && server.arg("oscPort").toInt() > 0) config.osc_port = server.arg("oscPort").toInt();
+    if (server.hasArg("goAddr") && server.arg("goAddr").length()) safeCopy(config.osc_address, server.arg("goAddr").c_str(), sizeof(config.osc_address));
+    if (server.hasArg("panAddr") && server.arg("panAddr").length()) safeCopy(config.panic_address, server.arg("panAddr").c_str(), sizeof(config.panic_address));
+    saveOscConfig();
+  }
   static bool evRegistered = false;
   if (!evRegistered) {
     WiFi.onEvent(onWifiDisc, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
@@ -406,7 +390,6 @@ static void handleJoinStatus() {
 // the raw JSON reply back. All rendering happens in the phone's browser.
 // ---------------------------------------------------------------------------
 static void handleQlabCmd() {
-  if (!guard()) return;
   String addr = server.arg("addr");
   if (WiFi.status() != WL_CONNECTED || !addr.startsWith("/")) {
     server.send(400, "application/json", "{\"err\":\"bad addr or no wifi\"}");
@@ -423,7 +406,6 @@ static void handleQlabCmd() {
 }
 
 static void handleQlabQuery() {
-  if (!guard()) return;
   String addr = server.arg("addr");
   if (WiFi.status() != WL_CONNECTED || !addr.startsWith("/")) {
     server.send(400, "application/json", "{\"err\":\"bad addr or no wifi\"}");
@@ -437,8 +419,11 @@ static void handleQlabQuery() {
   udp.endPacket();
   q.empty();
 
+  // LAN OSC round-trip is normally <50ms; a long wait here just ties up the
+  // single-threaded WebServer and makes every other panel action feel stuck
+  // behind it (this was the real cause of the QLab tab feeling laggy).
   unsigned long start = millis();
-  while (millis() - start < 1500) {
+  while (millis() - start < 400) {
     int size = udp.parsePacket();
     if (size > 0) {
       OSCMessage m;
@@ -465,8 +450,7 @@ static void handleQlabQuery() {
 static void startServer() {
   server.on("/", HTTP_GET, []() {
     // During WiFi Setup the AP serves the simple join page; the full panel
-    // lives on the venue LAN once the board is connected (PIN-gated).
-    if (!wifiOnboarding && !guard()) return;
+    // lives on the venue LAN once the board is connected.
     server.send_P(200, "text/html", wifiOnboarding ? WIFI_PAGE : WEB_PAGE);
   });
   server.on("/api/status", HTTP_GET, handleStatus);
@@ -474,8 +458,8 @@ static void startServer() {
   server.on("/api/config", HTTP_POST, handleConfigPost);
   server.on("/api/spectrum", HTTP_GET, handleSpectrumGet);
   server.on("/api/spectrum", HTTP_POST, handleSpectrumPost);
-  server.on("/api/go", HTTP_POST, []() { if (!guard()) return; performGO(); server.send(200, "application/json", "{}"); });
-  server.on("/api/panic", HTTP_POST, []() { if (!guard()) return; performPanic(); server.send(200, "application/json", "{}"); });
+  server.on("/api/go", HTTP_POST, []() { performGO(); server.send(200, "application/json", "{}"); });
+  server.on("/api/panic", HTTP_POST, []() { performPanic(); server.send(200, "application/json", "{}"); });
   server.on("/font.css", HTTP_GET, []() {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.send_P(200, "text/css", FONT_CSS);
@@ -489,13 +473,11 @@ static void startServer() {
   server.on("/api/otacheck", HTTP_GET, handleOtaCheck);
   server.on("/api/otainstall", HTTP_POST, handleOtaInstall);
   server.on("/api/reboot", HTTP_POST, []() {
-    if (!guard()) return;
     server.send(200, "application/json", "{}");
     delay(300);
     ESP.restart();
   });
   server.on("/update", HTTP_POST, []() {
-    if (!guard()) return;
     bool ok = !Update.hasError();
     server.send(ok ? 200 : 500, "text/plain", ok ? "OK" : "FAIL");
     if (ok) { delay(400); ESP.restart(); }

@@ -1,5 +1,5 @@
 {
-  "version": "v16.15",
+  "version": "v16.16",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "One-flow WiFi onboarding, gogo.local, panel PIN (gogo/0000), QLab/Firmware tab fix, QLab connection test"
+  "notes": "Removed panel PIN (owner feedback: unnecessary friction); OSC target fields moved into WiFi Setup itself; QLab tab reordered + faster (400ms OSC wait, no extra query per click)"
 }
