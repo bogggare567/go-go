@@ -69,6 +69,7 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 <option value="2">LoRa TX (remote)</option><option value="3">LoRa RX (gateway)</option></select>
 <div id="b_out"><label>Gateway output</label><select id="out" onchange="vis()">
 <option value="0">BLE keyboard</option><option value="1">OSC / WiFi</option></select></div>
+<label>Panel PIN (login gogo, default 0000)</label><input id="pin" placeholder="change PIN — min 4 digits">
 </div>
 <div class="card" id="b_radio">
 <h3>LoRa radio</h3>
@@ -132,6 +133,8 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 <div class="warn">Works in OSC mode: the board relays commands to the QLab target configured in Settings. If the workspace has a passcode, connect first.</div>
 <div class="row"><div><input id="qpass" placeholder="passcode"></div>
 <div><button class="btn ghost" style="margin-top:0" onclick="qconnect()">Connect</button></div></div>
+<button class="btn ghost" onclick="qtest()">Test connection</button>
+<div id="qtestout" class="warn"></div>
 </div>
 </div>
 
@@ -152,7 +155,7 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 
 <script>
 let specOn=false,cfg=null;
-function tab(i,b){document.querySelectorAll('.page').forEach((p,j)=>p.style.display=i==j?'':'none');
+function tab(i,b){document.querySelectorAll('.page').forEach(p=>p.style.display=(p.id=='p'+i)?'':'none');
 document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}
 function toast(t){let m=document.getElementById('msg');m.textContent=t;m.style.display='block';setTimeout(()=>m.style.display='none',2500);}
 async function act(a){await fetch('/api/'+a,{method:'POST'});toast(a.toUpperCase()+' sent');}
@@ -216,6 +219,8 @@ f.append(i,document.getElementById(i).value);
 f.append('chan',document.getElementById('chan').value);
 let ns=document.getElementById('ssid').value,np=document.getElementById('wpass').value;
 if(ns!=cfg.ssid||np){f.append('ssid',ns);f.append('wpass',np);}
+let pv=document.getElementById('pin').value;
+if(pv&&pv.length>=4)f.append('pin',pv);
 let r=await(await fetch('/api/config',{method:'POST',body:f})).json();
 toast(r.reboot?'Saved — rebooting…':'Saved');}
 async function spec(){specOn=!specOn;
@@ -236,6 +241,11 @@ x.fillText(s.freq.toFixed(2)+' MHz',Math.min(mx+4,540),22);}catch(e){}
 setTimeout(drawLoop,400);}
 async function qcmd(a){await fetch('/api/qlab/cmd?addr='+encodeURIComponent(a),{method:'POST'});
 toast('QLab '+a);setTimeout(qactive,600);}
+async function qtest(){let o=document.getElementById('qtestout');o.textContent='Testing\u2026';
+try{let r=await(await fetch('/api/qlab/query?addr=/version')).json();
+if(r.err)o.textContent='No reply: '+r.err+' \u2014 check OSC target IP/port (Settings) and QLab \u2192 Settings \u2192 Network \u2192 OSC access.';
+else o.innerHTML='<b class="ok">QLab replied</b> \u2014 version '+(r.data||'ok');}
+catch(e){o.textContent='Request failed';}}
 async function qconnect(){let p=document.getElementById('qpass').value;
 await fetch('/api/qlab/cmd?addr=/connect&s='+encodeURIComponent(p),{method:'POST'});toast('connect sent');}
 function walkCues(list,out,depth){for(let c of list){out.push({d:depth,n:c.number||'',m:c.listName||c.name||'',t:c.type||''});

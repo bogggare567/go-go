@@ -1,5 +1,5 @@
 {
-  "version": "v16.14",
+  "version": "v16.15",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "Full audit: OTA abort recovery, clean boot, serial debug console for HIL testing"
+  "notes": "One-flow WiFi onboarding, gogo.local, panel PIN (gogo/0000), QLab/Firmware tab fix, QLab connection test"
 }

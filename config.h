@@ -1,5 +1,5 @@
 // GO-GO — shared types, pins, constants and global state declarations.
-#define GOGO_VERSION "v16.14"
+#define GOGO_VERSION "v16.15"
 // Split 1:1 from the v15 monolith; behavior must stay identical.
 #pragma once
 
@@ -216,6 +216,7 @@ extern OscConfig config;
 extern RadioConfig radioCfg;
 extern char wifiSsid[33];      // venue network; set via the web panel
 extern char wifiPass[65];
+extern char webPin[9];         // panel PIN (HTTP auth, user "gogo"), default 0000
 
 extern uint8_t gatewayOutputMode;
 extern uint8_t selectedOutputMode;

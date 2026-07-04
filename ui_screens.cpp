@@ -688,10 +688,12 @@ void drawWebSetup() {
     drawCenteredText("Join WiFi:", 14, 1);
     drawCenteredText(getUniqueName().c_str(), 25, 1);
     drawCenteredText(("pass: " + webApPass()).c_str(), 36, 1);
+    drawCenteredText(webUrl().c_str(), 46, 1);
   } else {
-    drawCenteredText("On your network:", 25, 1);
+    drawCenteredText(("PIN: " + String(webPin)).c_str(), 14, 1);
+    drawCenteredText(webUrl().c_str(), 27, 1);
+    drawCenteredText("or gogo.local", 39, 1);
   }
-  drawCenteredText(webUrl().c_str(), 46, 1);
   drawCenteredText("click: exit", 56, 1);
   display.display();
 }

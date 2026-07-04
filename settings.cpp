@@ -51,6 +51,12 @@ void saveWifiCreds() {
   prefs.end();
 }
 
+void saveWebPin() {
+  prefs.begin("system", false);
+  prefs.putString("webpin", webPin);
+  prefs.end();
+}
+
 void saveKeymap() {
   prefs.begin("system", false);
   prefs.putUChar("gokey", goKeyCode);
@@ -65,7 +71,9 @@ bool loadControlMode() {
   gatewayOutputMode = prefs.getUChar("out", OUT_BLE);
   goKeyCode = prefs.getUChar("gokey", 0x2C);    // Space
   panicKeyCode = prefs.getUChar("pankey", 0x29); // Esc
+  String pin = prefs.isKey("webpin") ? prefs.getString("webpin", "0000") : "0000";
   prefs.end();
+  safeCopy(webPin, pin.c_str(), sizeof(webPin));
 
   if (!saved) {
     modeConfigured = false;
