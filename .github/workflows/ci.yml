@@ -1,0 +1,44 @@
+name: Build firmware
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install Heltec ESP32 core
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls https://resource.heltec.cn/download/package_heltec_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install Heltec-esp32:esp32
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install \
+            "OSCMessage" \
+            "NimBLE-Arduino" \
+            "RadioLib" \
+            "Adafruit SSD1306" \
+            "Adafruit GFX Library"
+
+      # NOTE: a past Heltec core release (esp-14.2.0_20260121) shipped a broken
+      # toolchain package missing the standard <numbers> header, which breaks
+      # this compile step with no obvious cause (see CLAUDE.md). If this job
+      # starts failing right after a Heltec core bump with an unrelated-looking
+      # "numbers: No such file or directory" error, that's almost certainly it —
+      # check the installed core version and the toolchain include dir.
+      - name: Compile
+        run: |
+          arduino-cli compile \
+            --fqbn "Heltec-esp32:esp32:heltec_wifi_lora_32_V3:UploadSpeed=921600,CPUFreq=240,DebugLevel=none,LoopCore=1,EventsCore=1,LORAWAN_REGION=0,LoRaWanDebugLevel=0,LORAWAN_PREAMBLE_LENGTH=0,SLOW_CLK_TPYE=0" \
+            .

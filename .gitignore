@@ -4,4 +4,6 @@ build-deploy.command
 push-to-github.command
 build/
 docs/.demo_cache/
+__pycache__/
+*.pyc
 *.bak
