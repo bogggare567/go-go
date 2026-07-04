@@ -23,9 +23,11 @@ panel (see below).
 
 1. **Power on** and select **OSC / WiFi** mode (first boot, or via the menu).
 2. **Join a network.** On first use the board opens its own setup AP
-   (`GO-GO-XXXXXX`, password `password123`) with an onboarding page: scan for
-   your venue's WiFi, tap it, enter the password. The board reboots onto
-   that network and shows its new IP on the OLED.
+   (`GO-GO-XXXXXX`, password `password123`) and the WiFiManager portal pops
+   up automatically once you join it: pick your venue's WiFi, enter the
+   password — the same page also has the OSC target fields from step 3, so
+   you can fill everything in one pass. The board reboots onto that network
+   and shows its new IP on the OLED.
 3. **Open the web panel** at that IP from any device on the same network
    (phone, laptop). Set:
    - **OSC target IP** — the IP address of the computer running QLab, on
