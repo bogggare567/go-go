@@ -38,7 +38,9 @@ press) commands, switchable at runtime between four transport modes:
   master/slave channel-hop mechanism so a paired pair can jump off a
   suddenly-noisy channel mid-show without operator intervention.
 - **Built-in web control panel** — no external `WiFiManager` dependency
-  (dropped it in favor of a from-scratch captive-portal onboarding flow),
+  (dropped it in favor of a from-scratch captive-portal onboarding flow —
+  network scan with signal bars, tap-to-join, `gogo.local` via mDNS once
+  connected),
   live status, a live RSSI spectrum view mirrored between OLED and browser,
   and **OTA firmware updates** via `Update.h` straight from the panel
   (`.bin` upload, no USB cable needed after first flash).

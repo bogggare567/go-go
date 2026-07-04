@@ -1,7 +1,7 @@
 # Good first issues
 
 Scoped, self-contained tasks for a first contribution. Each one is grounded
-in the current code (v16.14) — file names and line-level pointers below so
+in the current code (v16.15) — file names and line-level pointers below so
 you don't have to go hunting. GitHub Issues aren't set up with these yet
 (see maintainer note at the bottom); treat this file as the issue tracker
 until they are.
@@ -34,44 +34,23 @@ preset name in Preferences (`system` namespace) so it survives reboot.
 
 ---
 
-## 2. mDNS hostname for the web panel (`gogo.local`)
+## 2. ~~mDNS hostname for the web panel~~ — done in v16.15
 
-**Where:** `web_ui.cpp` (server setup), `LoRa_soundkorb.ino` / `osc_wifi.cpp`
-(WiFi STA connect path).
-
-**What's there now:** once the board joins the venue WiFi network, the panel
-is reachable only by IP — shown on the OLED after connect. Listed in
-`docs/ROADMAP.md` §3 ("Осталось на потом") as wanted but not done.
-
-**What to add:** call `MDNS.begin("gogo")` (ESP32 `ESPmDNS` library) after
-the STA connection succeeds, so `http://gogo.local` works on networks that
-support mDNS (most macOS/iOS/Linux, and Windows with Bonjour installed).
-Handle the case where multiple GO-GO devices are on the same network — maybe
-suffix with the last 4 hex digits of `deviceId`, matching the AP name
-pattern `GO-GO-XXXXXX` already used elsewhere.
-
-**Good for:** a short, self-contained addition — good first PR to this repo.
+`http://gogo.local` now works on the venue LAN (`MDNS.begin("gogo")` in
+`web_ui.cpp`, started once the STA link is up). Left here crossed out so a
+contributor doesn't duplicate the work; a good follow-up is handling two
+GO-GO boards on the same network (currently the second one just fails to
+claim the `gogo` hostname — could suffix with the device ID).
 
 ---
 
-## 3. Password-protect the web panel in venue-network (STA) mode
+## 3. ~~Password-protect the web panel~~ — done in v16.15 (PIN, not a full password)
 
-**Where:** `web_ui.cpp` (all `server.on(...)` handlers).
-
-**What's there now:** the provisioning AP has a fixed WiFi password
-(`password123`), but once the board is on the venue's own network, the panel
-itself (status, GO/PANIC buttons, all settings, OTA update) is open to
-anyone on that network. Documented as a known limitation in `SECURITY.md`.
-
-**What to add:** simple HTTP Basic Auth (`server.requireAuthentication(...)`
-in the ESP32 `WebServer` library) gated behind a password set once in the
-panel and stored in Preferences (`system` namespace), defaulting to *no
-password* so existing setups aren't broken until the owner opts in. Needs a
-"set/change panel password" field in the settings page and a way to reset it
-from the on-device menu (factory-reset already exists — hook into that).
-
-**Good for:** someone who wants to touch both firmware (`web_ui.cpp`) and
-the HTML/JS in `web_html.h` for the new password field.
+HTTP Basic Auth now gates the panel (login `gogo`, default PIN `0000`,
+changeable in Settings, stored in Preferences). It's a convenience PIN over
+plain HTTP, not a real security boundary — see `SECURITY.md`. A good
+follow-up: rate-limit failed attempts, or move to a real password + HTTPS
+(self-signed cert) for anyone who needs stronger guarantees.
 
 ---
 
@@ -117,6 +96,11 @@ of failing at settings-save time.
 `config`, and return an error the panel's JS can show inline instead of
 saving invalid values. Bonus: same for the go/panic OSC address fields
 (should start with `/`).
+
+**Note (v16.15):** the panel's Settings page is now split into per-mode
+cards (only the OSC card shows in OSC mode) and there's a new PIN field —
+if you pick this issue up, keep that layout, just add validation to the
+existing `oscIp`/`oscPort` inputs.
 
 **Good for:** someone starting with the web panel's request-handling code —
 narrow, testable without any radio/BLE hardware quirks.

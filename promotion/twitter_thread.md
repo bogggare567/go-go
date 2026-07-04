@@ -42,8 +42,10 @@ a pre-built binary is one `esptool.py` command. Fully open, MIT license,
 issues tagged for first-time contributors if you want to dig in.
 
 7/
-Repo: https://github.com/bogggare567/go-go
-Demo: [DEMO VIDEO LINK]
+Repo: https://github.com/bogggare567/go-go — the README has animated,
+pixel-exact walkthroughs of the LoRa pair, the BLE mode and the WiFi
+onboarding (real firmware screens, not mockups). A hands-on demo video is
+still on the list — see [DEMO VIDEO LINK] once it's shot.
 
 If you run sound/light for live shows — what would you want a single-button
 remote to do that this doesn't yet?

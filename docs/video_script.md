@@ -3,7 +3,8 @@
 A short (2:30–3:30) demo video for the README/promotion posts. Goal: show
 the actual device working in each mode, not just slides — the SVG
 animations (`img/gogo-demo.svg`, `img/scenario-ble.svg`,
-`img/scenario-lora.svg`) already cover the "how it works" explanation
+`img/scenario-lora.svg`, `img/scenario-setup.svg`) already cover the "how
+it works" explanation
 graphically; this video's job is to prove it's real hardware that really
 works, in under 3 minutes.
 

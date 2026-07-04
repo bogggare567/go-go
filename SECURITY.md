@@ -17,11 +17,13 @@ These are real, current gaps — not hidden. They're tracked in
   on. There's a per-packet counter (anti-replay groundwork) but no shared
   key or signature yet. Don't rely on the LoRa link in a hostile RF
   environment for anything where a spoofed PANIC would be dangerous.
-- **The web setup/control panel has no password in venue-network (STA)
-  mode.** Anyone on the same WiFi network can reach the panel and send
-  GO/PANIC or change settings. The initial provisioning AP (`GO-GO-XXXXXX`)
-  does have a fixed WiFi password, but the panel itself does not gate access
-  once you're on the network.
+- **The web panel's PIN is a convenience gate, not real security.** As of
+  v16.15 the panel (login `gogo`, default PIN `0000`, changeable in
+  Settings) requires HTTP Basic Auth over plain HTTP on the venue LAN — it
+  stops casual snooping but the PIN travels unencrypted and there's no
+  rate-limiting or lockout. The initial provisioning AP (`GO-GO-XXXXXX`)
+  has a separate fixed WiFi password and stays open by design (it must be
+  frictionless to join).
 - **Firmware OTA updates (`/update`) are not authenticated or signed.**
   Anyone who can reach the panel can push a new `.bin` to the device.
 - **OSC has no transport security.** It's plain UDP, matching how QLab and
