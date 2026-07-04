@@ -1,5 +1,5 @@
 {
-  "version": "v16.16",
+  "version": "v16.17",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "Removed panel PIN (owner feedback: unnecessary friction); OSC target fields moved into WiFi Setup itself; QLab tab reordered + faster (400ms OSC wait, no extra query per click)"
+  "notes": "WiFi Setup is back to the real WiFiManager portal (restyled to match the brand) instead of the hand-rolled onboarding flow; fixed a WiFi retry storm that was the likely cause of slow boot / black screen / GO_SENT screen not appearing; hold-progress bar now shows on every screen with a hold action; CI library name fix"
 }

@@ -7,18 +7,13 @@
 #include <DNSServer.h>
 #include <ESPmDNS.h>
 #include "web_html.h"
-#include "web_html_wifi.h"
 #include "web_font.h"
 
 static WebServer server(80);
-static DNSServer dns;   // captive portal: every AP lookup resolves to us
+static DNSServer dns;   // captive portal: every AP lookup resolves to us (Web Setup panel AP)
 static bool serverStarted = false;
 static bool apRaised = false;
 static bool webPausedBle = false;
-static bool wifiOnboarding = false;   // AP serves the scan/join page, not the panel
-static bool joinAttempt = false;
-
-bool wifiOnboardingActive() { return wifiOnboarding; }
 
 // Online update manifest (lives in the GitHub repo, fetched over HTTPS)
 static const char* OTA_MANIFEST_URL =
@@ -286,106 +281,6 @@ static void handleOtaInstall() {
 }
 
 // ---------------------------------------------------------------------------
-// WiFi onboarding: async scan + join with live status.
-// ---------------------------------------------------------------------------
-static void handleScan() {
-  if (server.hasArg("restart")) {
-    WiFi.scanDelete();
-    WiFi.scanNetworks(true);
-    server.send(200, "application/json", "{\"scan\":\"started\"}");
-    return;
-  }
-  int n = WiFi.scanComplete();
-  if (n == WIFI_SCAN_FAILED) {
-    WiFi.scanNetworks(true);
-    server.send(200, "application/json", "{\"scan\":\"started\"}");
-    return;
-  }
-  if (n == WIFI_SCAN_RUNNING) {
-    server.send(200, "application/json", "{\"scan\":\"running\"}");
-    return;
-  }
-  String j = "{\"nets\":[";
-  for (int i = 0; i < n; i++) {
-    if (i) j += ",";
-    j += "{\"ssid\":\"" + jsonEscape(WiFi.SSID(i).c_str()) + "\",";
-    j += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
-    j += "\"enc\":" + String(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "false" : "true") + "}";
-  }
-  j += "]}";
-  WiFi.scanDelete();
-  server.send(200, "application/json", j);
-}
-
-// Join state machine, modeled on WiFiManager's connectWifi():
-//  - only WL_CONNECTED / WL_CONNECT_FAILED end an attempt early; a transient
-//    NO_SSID_AVAIL is NOT a failure (the first off-channel scan often misses)
-//  - HTTP/DNS are not serviced during an attempt window: the phone hammering
-//    our AP is exactly what starves the station's scan (WM blocks its portal
-//    during connect for the same reason, just implicitly)
-//  - on final failure the STA is turned off to stabilize the AP for a retry
-enum JoinPhase : uint8_t { JOIN_IDLE, JOIN_KICKOFF, JOIN_WAIT, JOIN_GAP };
-static JoinPhase joinPhase = JOIN_IDLE;
-static unsigned long joinPhaseAt = 0;
-static unsigned long joinOkAt = 0;
-static uint8_t joinTries = 0;
-static bool joinFailed = false;
-static int lastDiscReason = 0;
-
-static void onWifiDisc(WiFiEvent_t, WiFiEventInfo_t info) {
-  lastDiscReason = info.wifi_sta_disconnected.reason;
-}
-
-static void handleJoin() {
-  safeCopy(wifiSsid, server.arg("ssid").c_str(), sizeof(wifiSsid));
-  safeCopy(wifiPass, server.arg("pass").c_str(), sizeof(wifiPass));
-  saveWifiCreds();
-  if (server.hasArg("oscIp") && server.arg("oscIp").length()) {
-    safeCopy(config.osc_ip, server.arg("oscIp").c_str(), sizeof(config.osc_ip));
-    if (server.hasArg("oscPort") && server.arg("oscPort").toInt() > 0) config.osc_port = server.arg("oscPort").toInt();
-    if (server.hasArg("goAddr") && server.arg("goAddr").length()) safeCopy(config.osc_address, server.arg("goAddr").c_str(), sizeof(config.osc_address));
-    if (server.hasArg("panAddr") && server.arg("panAddr").length()) safeCopy(config.panic_address, server.arg("panAddr").c_str(), sizeof(config.panic_address));
-    saveOscConfig();
-  }
-  static bool evRegistered = false;
-  if (!evRegistered) {
-    WiFi.onEvent(onWifiDisc, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-    evRegistered = true;
-  }
-  joinAttempt = true;
-  joinFailed = false;
-  joinTries = 0;
-  lastDiscReason = 0;
-  joinOkAt = 0;
-  joinPhase = JOIN_KICKOFF;
-  joinPhaseAt = millis();
-  // Respond BEFORE the radio work starts so the page gets its answer.
-  server.send(200, "application/json", "{}");
-}
-
-static const char* discReasonText(int r) {
-  switch (r) {
-    case 2: case 202: return "auth failed - check the password";
-    case 15: case 204: return "handshake timeout - wrong password?";
-    case 201: return "network not found - is it 2.4 GHz?";
-    case 203: return "association failed";
-    default: return "";
-  }
-}
-
-static void handleJoinStatus() {
-  String state = "connecting";
-  if (!joinAttempt && !joinFailed) state = "idle";
-  else if (WiFi.status() == WL_CONNECTED) state = "ok";
-  else if (joinFailed) state = "fail";
-  String j = "{\"state\":\"" + state + "\",\"try\":" + String((int)joinTries) +
-             ",\"reason\":\"" + String(discReasonText(lastDiscReason)) + "\"" +
-             ",\"ip\":\"" +
-             (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\"}";
-  server.send(200, "application/json", j);
-}
-
-// ---------------------------------------------------------------------------
 // QLab bridge: the browser asks us over HTTP, we ask QLab over OSC and relay
 // the raw JSON reply back. All rendering happens in the phone's browser.
 // ---------------------------------------------------------------------------
@@ -449,9 +344,7 @@ static void handleQlabQuery() {
 
 static void startServer() {
   server.on("/", HTTP_GET, []() {
-    // During WiFi Setup the AP serves the simple join page; the full panel
-    // lives on the venue LAN once the board is connected.
-    server.send_P(200, "text/html", wifiOnboarding ? WIFI_PAGE : WEB_PAGE);
+    server.send_P(200, "text/html", WEB_PAGE);
   });
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/config", HTTP_GET, handleConfigGet);
@@ -464,10 +357,6 @@ static void startServer() {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.send_P(200, "text/css", FONT_CSS);
   });
-  server.on("/api/scan", HTTP_GET, handleScan);
-  server.on("/api/scan", HTTP_POST, handleScan);
-  server.on("/api/join", HTTP_POST, handleJoin);
-  server.on("/api/joinstatus", HTTP_GET, handleJoinStatus);
   server.on("/api/qlab/cmd", HTTP_POST, handleQlabCmd);
   server.on("/api/qlab/query", HTTP_GET, handleQlabQuery);
   server.on("/api/otacheck", HTTP_GET, handleOtaCheck);
@@ -497,12 +386,6 @@ static void startServer() {
   DBGLN("[WEB] server started");
 }
 
-void startWifiOnboarding() {
-  wifiOnboarding = true;
-  joinAttempt = false;
-  startWebSetup();
-}
-
 void startWebSetup() {
   // In OSC modes the STA link already carries the UI; otherwise raise an AP.
   if (WiFi.status() != WL_CONNECTED) {
@@ -530,8 +413,6 @@ void startWebSetup() {
 }
 
 void stopWebSetup() {
-  wifiOnboarding = false;
-  joinAttempt = false;
   if (apRaised) {
     dns.stop();
     WiFi.softAPdisconnect(true);
@@ -559,65 +440,6 @@ void webLoop() {
       mdnsUp = true;
     }
   }
-  // Radio focus during a join attempt: servicing the phone's HTTP polling
-  // starves the station's off-channel scans (WiFiManager's portal blocks
-  // here too). DNS/HTTP resume in the gaps between attempts.
-  bool radioBusy = (joinPhase == JOIN_WAIT || joinPhase == JOIN_KICKOFF);
-  if (apRaised && !radioBusy) dns.processNextRequest();
-  if (serverStarted && !radioBusy) server.handleClient();
-
-  // Join manager (see the comment block above handleJoin).
-  if (joinAttempt && WiFi.status() != WL_CONNECTED) {
-    unsigned long inPhase = millis() - joinPhaseAt;
-    switch (joinPhase) {
-      case JOIN_KICKOFF:
-        if (inPhase > 300) {  // let the HTTP response flush first
-          joinTries++;
-          WiFi.mode(WIFI_AP_STA);
-          WiFi.setSleep(false);
-          WiFi.disconnect();
-          delay(100);
-          WiFi.begin(wifiSsid, wifiPass);
-          joinPhase = JOIN_WAIT;
-          joinPhaseAt = millis();
-        }
-        break;
-      case JOIN_WAIT:
-        if (WiFi.status() == WL_CONNECT_FAILED || inPhase > 12000) {
-          joinPhase = JOIN_GAP;  // serve HTTP again so the page sees progress
-          joinPhaseAt = millis();
-        }
-        break;
-      case JOIN_GAP:
-        if (inPhase > 1500) {
-          if (joinTries < 3) {
-            joinPhase = JOIN_KICKOFF;
-            joinPhaseAt = millis();
-          } else {
-            joinAttempt = false;
-            joinFailed = true;
-            joinPhase = JOIN_IDLE;
-            // WiFiManager does this too: STA off stabilizes the AP so the
-            // user can comfortably retry from the page.
-            WiFi.disconnect();
-            WiFi.mode(WIFI_AP);
-          }
-        }
-        break;
-      default:
-        break;
-    }
-  }
-
-  // Onboarding finish is autonomous: channel switching may kick the phone
-  // off our AP, so the reboot must not depend on the page's JavaScript.
-  if (joinAttempt && WiFi.status() == WL_CONNECTED) {
-    joinPhase = JOIN_IDLE;
-    if (!joinOkAt) joinOkAt = millis();
-    if (millis() - joinOkAt > 5000) {
-      joinAttempt = false;
-      showSimpleMessage("WiFi OK", WiFi.localIP().toString().c_str(), 1500);
-      ESP.restart();
-    }
-  }
+  if (apRaised) dns.processNextRequest();
+  if (serverStarted) server.handleClient();
 }

@@ -116,8 +116,12 @@ saving invalid values. Bonus: same for the go/panic OSC address fields
 **Note (v16.15):** the panel's Settings page is now split into per-mode
 cards (only the OSC card shows in OSC mode) — if you pick this issue up,
 keep that layout, just add validation to the existing `oscIp`/`oscPort`
-inputs. The WiFi onboarding page (`web_html_wifi.h`) also collects
-OSC target fields now (v16.16), so validate there too.
+inputs.
+
+**Note (v16.17):** WiFi Setup is back to the real WiFiManager portal
+(`osc_wifi.cpp`, `runWiFiManager()`), which collects the same OSC target
+fields on its page and already checks the IP with `isValidIP()` before
+saving — only the panel's own `/api/config` handler still needs this fix.
 
 **Good for:** someone starting with the web panel's request-handling code —
 narrow, testable without any radio/BLE hardware quirks.

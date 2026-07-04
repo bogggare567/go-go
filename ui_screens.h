@@ -43,7 +43,7 @@ void drawModeInfo();
 void drawRegionSelect();
 void drawSpectrum();
 void drawWebSetup();
-void drawHoldProgress();
+void drawHoldProgress(unsigned long maxMs = HOLD_SELECT_MS);
 
 void startBootAnimation();
 void updateBootAnimation();

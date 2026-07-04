@@ -340,6 +340,7 @@ void drawGoScreen() {
   display.setCursor((SCREEN_WIDTH - w) / 2, 54);
   display.print(bottom);
 
+  drawHoldProgress(PANIC_HOLD_MS);
   display.display();
 }
 
@@ -417,6 +418,7 @@ void drawLoraSearch() {
     drawCenteredText(outputWantsBle() ? "Out: BLE" : "Out: OSC", 45, 1);
   }
   drawCenteredText("hold: menu", 55, 1);
+  drawHoldProgress();
   display.display();
 }
 
@@ -431,6 +433,7 @@ void drawLoraLinkOK() {
   String rssi = String("RSSI ") + String(lastPeerRssi) + String(" dBm");
   drawCenteredText(rssi.c_str(), 45, 1);
   drawCenteredText("GO / 3x MENU", 55, 1);
+  drawHoldProgress(PANIC_HOLD_MS);
   display.display();
 }
 
@@ -443,6 +446,7 @@ void drawLoraLinkLost() {
   drawCenteredText(isLoRaRemote() ? "RX disconnected" : "TX disconnected", 32, 1);
   drawCenteredText("click: retry", 45, 1);
   drawCenteredText("hold: menu", 55, 1);
+  drawHoldProgress();
   display.display();
 }
 
@@ -485,6 +489,7 @@ void drawNoConnection() {
     drawCenteredText("hold: menu", 52, 1);
   }
 
+  drawHoldProgress();
   display.display();
 }
 
@@ -646,12 +651,12 @@ void drawMenu() {
 
 // Visual feedback for hold-to-select: a bar sweeps across the hint line
 // while the button is held; the action fires when it reaches the edge.
-void drawHoldProgress() {
+void drawHoldProgress(unsigned long maxMs) {
   if (!buttonPressed) return;
   unsigned long held = millis() - pressStart;
   if (held < 150) return;
-  if (held > HOLD_SELECT_MS) held = HOLD_SELECT_MS;
-  int w = (int)(held * SCREEN_WIDTH / HOLD_SELECT_MS);
+  if (held > maxMs) held = maxMs;
+  int w = (int)(held * SCREEN_WIDTH / maxMs);
   display.fillRect(0, 53, w, 11, SSD1306_INVERSE);
 }
 
@@ -682,7 +687,7 @@ void drawRegionSelect() {
 void drawWebSetup() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
-  drawCenteredText(wifiOnboardingActive() ? "WIFI SETUP" : "WEB SETUP", 0, 1);
+  drawCenteredText("WEB SETUP", 0, 1);
   display.setTextSize(1);
   if (webApActive()) {
     drawCenteredText("Join WiFi:", 14, 1);
@@ -773,6 +778,7 @@ void drawModeInfo() {
     display.setCursor(0, 30); display.print("Use Mode menu");
   }
 
+  drawHoldProgress();
   display.display();
 }
 

@@ -82,6 +82,13 @@ void factoryReset() {
   drawCenteredText("Erasing config", 40, 1);
   display.display();
 
+  // Clears whatever WiFiManager's own portal flow persisted into the
+  // ESP-IDF WiFi NVS (it briefly turns WiFi.persistent(true) on to save a
+  // freshly-entered network) - without this, a factory reset would not
+  // fully forget a network joined through the portal.
+  WiFiManager wm;
+  wm.resetSettings();
+
   prefs.begin("osc", false); prefs.clear(); prefs.end();
   prefs.begin("system", false); prefs.clear(); prefs.end();
   prefs.begin("radio", false); prefs.clear(); prefs.end();
@@ -122,8 +129,6 @@ void startModeNow(uint8_t mode) {
     return;
   }
 
-  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
-
   if (ready) {
     setScreen(SCREEN_GO);
   } else {
@@ -153,10 +158,10 @@ void startRxNow(uint8_t out) {
     WiFi.mode(WIFI_STA);
     if (WiFi.status() != WL_CONNECTED) {
       bool quickConnect = connectWiFiWithDisplay(false);
-      if (!quickConnect) {
-        configureWiFi(false);
-        return;  // user is in the web panel now
-      }
+      // configureWiFi() blocks until the portal finishes (connected,
+      // cancelled, or timed out) - its return value IS the real answer,
+      // not just "the user is somewhere else now".
+      if (!quickConnect) quickConnect = configureWiFi(false);
     }
     gatewayWifiReady = (WiFi.status() == WL_CONNECTED);
     if (gatewayWifiReady) udp.begin(0);
@@ -171,8 +176,6 @@ void startRxNow(uint8_t out) {
     setScreen(SCREEN_REGION_SELECT);
     return;
   }
-
-  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
 
   if (ready) {
     setScreen(SCREEN_GO);
@@ -201,7 +204,6 @@ void restartIntoMode(uint8_t mode) {
     setScreen(SCREEN_REGION_SELECT);
     return;
   }
-  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
   if (mode == MODE_LORA_REMOTE && ready) {
     selectedPeerIndex = 0;
     setScreen(SCREEN_PAIR_SELECT);
@@ -228,10 +230,7 @@ void restartIntoRxOutput(uint8_t out) {
     WiFi.mode(WIFI_STA);
     if (WiFi.status() != WL_CONNECTED) {
       bool quickConnect = connectWiFiWithDisplay(false);
-      if (!quickConnect) {
-        configureWiFi(false);
-        return;  // user is in the web panel now
-      }
+      if (!quickConnect) quickConnect = configureWiFi(false);
     }
     gatewayWifiReady = (WiFi.status() == WL_CONNECTED);
     if (gatewayWifiReady) udp.begin(0);
@@ -245,7 +244,6 @@ void restartIntoRxOutput(uint8_t out) {
     setScreen(SCREEN_REGION_SELECT);
     return;
   }
-  if (!ready && currentScreen == SCREEN_WEB_SETUP) return;  // onboarding is open
   setScreen(ready ? SCREEN_GO : SCREEN_NO_CONNECTION);
   messageTime = millis();
 }
@@ -398,7 +396,9 @@ void handleMenuSelect() {
 
     case MENU_SETUP:
       if (controlMode == MODE_OSC_WIFI || (controlMode == MODE_LORA_GATEWAY && outputWantsOsc())) {
-        configureWiFi(false);  // opens the web panel screen
+        bool ok = configureWiFi(false);  // blocking WiFiManager portal
+        setScreen(ok ? SCREEN_GO : SCREEN_NO_CONNECTION);
+        messageTime = millis();
       } else {
         setScreen(SCREEN_MODE_INFO);
       }

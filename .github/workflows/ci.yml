@@ -24,8 +24,10 @@ jobs:
 
       - name: Install libraries
         run: |
+          arduino-cli lib update-index
           arduino-cli lib install \
-            "OSCMessage" \
+            "OSC" \
+            "WiFiManager" \
             "NimBLE-Arduino" \
             "RadioLib" \
             "Adafruit SSD1306" \

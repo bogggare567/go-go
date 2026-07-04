@@ -5,10 +5,8 @@
 #include "config.h"
 
 void webLoop();            // call from loop(); starts/serves the HTTP server
-void startWebSetup();      // menu action: ensure the UI is reachable (AP if needed)
-void startWifiOnboarding();// WiFi Setup: AP + scan/join page (captive portal)
+void startWebSetup();      // menu action: ensure the panel is reachable (AP if needed)
 void stopWebSetup();       // leave the web-setup screen: drop the AP we raised
 bool webApActive();
-bool wifiOnboardingActive();
 String webUrl();           // address to show on the OLED
 String webApPass();

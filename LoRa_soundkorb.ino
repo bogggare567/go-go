@@ -159,7 +159,7 @@ void setup() {
 #if DEBUG_SERIAL
 // Debug console (DEBUG_SERIAL builds only): drive the device over USB for
 // hardware-in-the-loop testing without touching the button.
-//   g=GO  p=PANIC  w=Web Setup  W=WiFi onboarding  s=status  r=reboot
+//   g=GO  p=PANIC  w=Web Setup  o=WiFi Setup portal  s=status  e=spectrum  q=wifi scan  r=reboot
 void debugConsole() {
   while (Serial.available()) {
     char c = (char)Serial.read();
@@ -167,7 +167,7 @@ void debugConsole() {
       case 'g': performGO(); break;
       case 'p': performPanic(); break;
       case 'w': startWebSetup(); setScreen(SCREEN_WEB_SETUP); break;
-      case 'W': startWifiOnboarding(); setScreen(SCREEN_WEB_SETUP); break;
+      case 'o': connectWiFiWithDisplay(true); break;
       case 'r': ESP.restart(); break;
       case 's':
         Serial.printf("[DBG] mode=%s screen=%d freq=%.2f auto=%d region=%s ble=%d wifi=%d ip=%s heap=%u\n",

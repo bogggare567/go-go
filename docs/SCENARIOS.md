@@ -98,14 +98,13 @@ flowchart TD
 
 ## Сценарий E — Web-панель и подключение к WiFi
 
-![GO-GO WiFi Setup demo](../img/scenario-setup.svg)
-
 Два разных экрана под разные задачи:
 
 - **`WiFi Setup`** — только подключение к сети площадки: плата поднимает AP
-  `GO-GO-XXXXXX` (пароль `password123`), у телефона страница онбординга
-  открывается сама (captive portal): скан сетей со шкалой сигнала → тап →
-  пароль (есть «показать») → «Connected!» + новый адрес платы.
+  `GO-GO-XXXXXX` (пароль `password123`) и открывает **WiFiManager** —
+  проверенный, знакомый флоу (список сетей → пароль → сохранение), просто
+  перекрашенный в наш стиль (тёмная тема, шрифт Unbounded). На той же
+  странице — поля OSC-цели (IP/порт/адреса), заполняются вместе с сетью.
 - **`Web Setup`** — полная панель: в BLE/LoRa-режимах через ту же AP, в
   OSC-режимах всегда доступна на `http://gogo.local` (или по IP) в сети
   площадки, без пароля (доверенная сеть площадки). Вкладки:
@@ -126,7 +125,7 @@ flowchart TD
 | `img/gogo-demo.svg` | A (OSC) — хиро в README | плата + мак с QLab-окном | ✅ |
 | `img/scenario-ble.svg` | B | плата + мак: системная плашка Bluetooth-пары, затем клавиши Space/Esc подсвечиваются | ✅ (`docs/generate_scenario_demos.py`) |
 | `img/scenario-lora.svg` | C/D | две платы (TX в руке / RX у мака), волна между ними, ACK обратно, потом QLab | ✅ (`docs/generate_scenario_demos.py`) |
-| `img/scenario-setup.svg` | E — WiFi Setup → Web Panel | плата (экран WIFI SETUP) + телефон-мокап (скан сетей → пароль → подключено → gogo.local → панель со Status) | ✅ (`docs/generate_setup_demo.py`) |
+| `img/scenario-setup.svg` | E — WiFi Setup → Web Panel | план (низкий приоритет) — WiFiManager's real portal is more honest here than a mockup; screenshot/record it instead once the restyle is confirmed on a phone |
 
 Для каждой мини-анимации можно переиспользовать: рендерер экранов, фото платы, палитру QLab — общий код теперь
 вынесен в `docs/demo_lib.py` (использует и хиро-анимация, и `docs/generate_scenario_demos.py`), а не продублирован
