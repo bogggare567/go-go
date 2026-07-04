@@ -29,6 +29,11 @@ DUR = "12s"
 #           (click at ~33%)  63-86%  PANIC sent (hold at ~61-66%)
 #                             88-100% idle, ready (loop closes into boot)
 STYLE_TIMELINE = f'''
+@font-face {{
+  font-family: 'Unbounded';
+  src: url(data:font/woff2;base64,{b64_font}) format('woff2');
+  font-weight: 200 900;
+}}
 .scr {{ opacity: 0; }}
 @keyframes k-boot   {{ 0%,10% {{opacity:1}} 12%,100% {{opacity:0}} }}
 @keyframes k-go     {{ 0%,11% {{opacity:0}} 13%,32% {{opacity:1}} 34%,46% {{opacity:0}} 48%,60% {{opacity:1}} 62%,86% {{opacity:0}} 88%,100% {{opacity:1}} }}
@@ -174,8 +179,8 @@ def build_ble():
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 750" font-family="Menlo, Consolas, monospace">
 <style>{style}</style>
 <rect width="1500" height="750" rx="24" fill="#101826"/>
-<text x="750" y="55" text-anchor="middle" fill="#e8eef7" font-size="27" font-weight="700" font-family="Menlo, sans-serif">GO-GO &#183; BLE keyboard mode</text>
-<text x="750" y="720" text-anchor="middle" fill="#5d6c80" font-size="15" font-family="Menlo, sans-serif">1 click = Space (GO) &#160;&#183;&#160; hold 1.4s = Esc (PANIC) &#160;&#183;&#160; works with anything that takes a keypress</text>
+<text x="750" y="55" text-anchor="middle" fill="#e8eef7" font-size="27" font-weight="700" font-family="Unbounded, Menlo, sans-serif">GO-GO &#183; BLE keyboard mode</text>
+<text x="750" y="720" text-anchor="middle" fill="#5d6c80" font-size="15" font-family="Unbounded, Menlo, sans-serif">1 click = Space (GO) &#160;&#183;&#160; hold 1.4s = Esc (PANIC) &#160;&#183;&#160; works with anything that takes a keypress</text>
 {board}
 {"".join(panel)}
 </svg>
@@ -240,7 +245,35 @@ def build_lora():
 .rx .scr-panic  { animation: k-panic-rx  12s step-end infinite; }
 '''
 
-    style = STYLE_TIMELINE + rx_delay_style + '''
+    qlab_style = '''
+/* QLab window: standby moves 1 -> 2 on GO, back at loop end (same rules as
+   the hero animation's gogo-demo.svg, since this reuses the same mockup) */
+@keyframes k-qsel1 { 0%,34% {opacity:1} 35%,97% {opacity:0} 98%,100% {opacity:1} }
+@keyframes k-qsel2 { 0%,34% {opacity:0} 35%,97% {opacity:1} 98%,100% {opacity:0} }
+.q-sel1, .q-ph1, .q-std1 { animation: k-qsel1 12s step-end infinite; }
+.q-sel2, .q-ph2, .q-std2 { opacity:0; animation: k-qsel2 12s step-end infinite; }
+.q-rowtx text { fill: currentColor; }
+.q-rowtx .q-ic path { fill: currentColor; stroke: currentColor; }
+.q-rowtx circle { stroke: currentColor; fill: none; }
+.q-rowtx circle + circle { fill: currentColor; stroke: none; }
+@keyframes k-rowtx0 { 0%,34% {color:#141414} 35%,97% {color:#e4e4e6} 98%,100% {color:#141414} }
+@keyframes k-rowtx1 { 0%,34% {color:#e4e4e6} 35%,97% {color:#141414} 98%,100% {color:#e4e4e6} }
+.q-rowtx0 { animation: k-rowtx0 12s step-end infinite; }
+.q-rowtx1 { animation: k-rowtx1 12s step-end infinite; }
+
+.q-goflash { opacity:0; animation: k-qgoflash 12s linear infinite; }
+@keyframes k-qgoflash { 0%,32% {opacity:0} 33.5%,36% {opacity:.85} 40%,100% {opacity:0} }
+.q-panicflash { opacity:0; animation: k-qpanicflash 12s linear infinite; }
+@keyframes k-qpanicflash { 0%,60% {opacity:0} 62%,66% {opacity:.85} 71%,100% {opacity:0} }
+.q-playtint { opacity:0; animation: k-qplaytint 12s step-end infinite; }
+@keyframes k-qplaytint { 0%,34% {opacity:0} 35%,62% {opacity:.16} 63%,100% {opacity:0} }
+.q-playbar { animation: k-qplaybar 12s linear infinite; }
+@keyframes k-qplaybar { 0%,35% {width:0} 62% {width:640px} 63%,100% {width:0} }
+.q-panicrow { opacity:0; animation: k-qpanicrow 12s linear infinite; }
+@keyframes k-qpanicrow { 0%,61% {opacity:0} 63%,66% {opacity:.4} 71%,100% {opacity:0} }
+'''
+
+    style = STYLE_TIMELINE + rx_delay_style + qlab_style + '''
 @keyframes k-wave-go   { 0%,32% {opacity:0; transform:scale(.4)} 34% {opacity:.9} 40% {opacity:0; transform:scale(1.7)} 41%,100% {opacity:0; transform:scale(.4)} }
 @keyframes k-wave-ack  { 0%,34% {opacity:0; transform:scale(.4)} 36% {opacity:.9} 42% {opacity:0; transform:scale(1.7)} 43%,100% {opacity:0; transform:scale(.4)} }
 @keyframes k-wave-panic{ 0%,61% {opacity:0; transform:scale(.4)} 63% {opacity:.9} 69% {opacity:0; transform:scale(1.7)} 70%,100% {opacity:0; transform:scale(.4)} }
@@ -254,8 +287,8 @@ def build_lora():
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 800" font-family="Menlo, Consolas, monospace">
 <style>{style}</style>
 <rect width="1700" height="800" rx="24" fill="#101826"/>
-<text x="850" y="55" text-anchor="middle" fill="#e8eef7" font-size="27" font-weight="700" font-family="Menlo, sans-serif">GO-GO &#183; LoRa remote + gateway</text>
-<text x="850" y="770" text-anchor="middle" fill="#5d6c80" font-size="15" font-family="Menlo, sans-serif">TX in hand &#160;&#8594;&#160; LoRa (auto clean channel) &#160;&#8594;&#160; RX gateway &#160;&#8594;&#160; OSC to QLab (or a BLE keypress)</text>
+<text x="850" y="55" text-anchor="middle" fill="#e8eef7" font-size="27" font-weight="700" font-family="Unbounded, Menlo, sans-serif">GO-GO &#183; LoRa remote + gateway</text>
+<text x="850" y="770" text-anchor="middle" fill="#5d6c80" font-size="15" font-family="Unbounded, Menlo, sans-serif">TX in hand &#160;&#8594;&#160; LoRa (auto clean channel) &#160;&#8594;&#160; RX gateway &#160;&#8594;&#160; OSC to QLab (or a BLE keypress)</text>
 
 <text x="230" y="270" text-anchor="middle" fill="#9fb0c8" font-size="16" font-family="Menlo, sans-serif">TX &#183; remote (in hand)</text>
 <text x="800" y="270" text-anchor="middle" fill="#9fb0c8" font-size="16" font-family="Menlo, sans-serif">RX &#183; gateway (by the computer)</text>
