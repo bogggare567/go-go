@@ -77,8 +77,11 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 </div>
 <div class="card" id="b_keys">
 <h3>Keyboard output</h3>
-<div class="row"><div><label>GO key</label><select id="gokey"></select></div>
-<div><label>PANIC key</label><select id="pankey"></select></div></div>
+<div class="row">
+<div><label>GO key</label><select id="gokey"></select><button type="button" class="btn ghost" style="margin-top:6px;width:100%" onclick="captureKey('gokey',this)">Press a key&hellip;</button></div>
+<div><label>PANIC key</label><select id="pankey"></select><button type="button" class="btn ghost" style="margin-top:6px;width:100%" onclick="captureKey('pankey',this)">Press a key&hellip;</button></div>
+</div>
+<div class="warn">"Press a key" reads the next key you press on this computer's own keyboard - quicker than picking from the list, and not limited to the presets.</div>
 </div>
 <div class="card" id="b_wifi">
 <h3>WiFi network</h3>
@@ -154,6 +157,35 @@ h3{font-family:'Unbounded',system-ui,sans-serif;font-weight:400;font-size:11px;l
 
 <script>
 let specOn=false,cfg=null;
+// Browser KeyboardEvent.code -> USB HID usage code (same table the boards
+// speak over BLE HID). Covers letters, digits, function keys and the usual
+// navigation/editing keys - standard USB HID Usage Page 0x07 values.
+const HID_CODE={Space:0x2C,Enter:0x28,Escape:0x29,Backspace:0x2A,Tab:0x2B,
+CapsLock:0x39,PrintScreen:0x46,ScrollLock:0x47,Pause:0x48,Insert:0x49,
+Home:0x4A,PageUp:0x4B,Delete:0x4C,End:0x4D,PageDown:0x4E,
+ArrowRight:0x4F,ArrowLeft:0x50,ArrowDown:0x51,ArrowUp:0x52,
+Minus:0x2D,Equal:0x2E,BracketLeft:0x2F,BracketRight:0x30,Backslash:0x31,
+Semicolon:0x33,Quote:0x34,Backquote:0x35,Comma:0x36,Period:0x37,Slash:0x38};
+for(let i=0;i<26;i++)HID_CODE['Key'+String.fromCharCode(65+i)]=0x04+i;
+for(let i=1;i<=9;i++)HID_CODE['Digit'+i]=0x1E+(i-1);
+HID_CODE.Digit0=0x27;
+for(let i=1;i<=12;i++)HID_CODE['F'+i]=0x3A+(i-1);
+function captureKey(selectId,btn){
+let sel=document.getElementById(selectId);
+let old=btn.textContent;btn.textContent='Press any key…';btn.disabled=true;
+function onKey(e){
+e.preventDefault();e.stopPropagation();
+window.removeEventListener('keydown',onKey,true);
+btn.textContent=old;btn.disabled=false;
+let code=HID_CODE[e.code];
+if(code===undefined){toast('Key not supported: '+e.code);return;}
+if(!sel.querySelector('option[value="'+code+'"]'))
+sel.insertAdjacentHTML('beforeend','<option value="'+code+'">'+(e.key.length==1?e.key.toUpperCase():e.code)+'</option>');
+sel.value=code;
+toast((selectId=='gokey'?'GO':'PANIC')+' key set - remember to Save');
+}
+window.addEventListener('keydown',onKey,true);
+}
 function tab(i,b){document.querySelectorAll('.page').forEach(p=>p.style.display=(p.id=='p'+i)?'':'none');
 document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}
 function toast(t){let m=document.getElementById('msg');m.textContent=t;m.style.display='block';setTimeout(()=>m.style.display='none',2500);}

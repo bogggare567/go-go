@@ -1,5 +1,5 @@
 {
-  "version": "v16.17",
+  "version": "v16.18",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "WiFi Setup is back to the real WiFiManager portal (restyled to match the brand) instead of the hand-rolled onboarding flow; fixed a WiFi retry storm that was the likely cause of slow boot / black screen / GO_SENT screen not appearing; hold-progress bar now shows on every screen with a hold action; CI library name fix"
+  "notes": "WiFi Setup reliability fix (removed a redundant WiFi.begin() that raced WiFiManager's own connect logic; more retries/longer timeout per attempt); explicit 2.4 GHz-only documentation; BLE key remap now supports pressing an actual key on your computer's keyboard in the web panel, not just picking from a preset list"
 }

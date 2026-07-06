@@ -36,7 +36,12 @@ const char* keyName(uint8_t code) {
   for (auto &k : KEY_OPTIONS) {
     if (k.code == code) return k.name;
   }
-  return "?";
+  // Not one of the presets - most likely captured via the web panel's
+  // "press a key" picker, which accepts any HID usage code. Show the raw
+  // code instead of a blank "?" so it's still identifiable.
+  static char buf[6];
+  snprintf(buf, sizeof(buf), "#%02X", code);
+  return buf;
 }
 
 int keyOptionCount() { return KEY_OPTION_COUNT; }

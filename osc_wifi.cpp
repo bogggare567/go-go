@@ -70,27 +70,30 @@ static bool runWiFiManager(bool tryAutoConnectFirst) {
   wm.setTitle("GO-GO");
   wm.setAPCallback(showApScreen);
   wm.setConfigPortalTimeout(90);
+  // Default is a single ~10s attempt (setConnectRetries default 1) - too
+  // impatient for a lot of real venue APs (busy 2.4 GHz, slow DHCP). Give it
+  // 3 tries at 15s each before giving up, matching the "often fails to
+  // connect" complaint more than a single quick attempt does.
+  wm.setConnectRetries(3);
+  wm.setConnectTimeout(15);
 
-  WiFiManagerParameter p_ip("osc_ip", "OSC target IP (QLab computer)", config.osc_ip, sizeof(config.osc_ip));
-  WiFiManagerParameter p_port("osc_port", "OSC port", portBuf, sizeof(portBuf));
-  WiFiManagerParameter p_addr("osc_addr", "GO OSC address", config.osc_address, sizeof(config.osc_address));
-  WiFiManagerParameter p_panic("panic_addr", "PANIC OSC address", config.panic_address, sizeof(config.panic_address));
+  WiFiManagerParameter p_ip("osc_ip", "OSC target IP (QLab computer) - optional, can set later in Web Setup", config.osc_ip, sizeof(config.osc_ip));
+  WiFiManagerParameter p_port("osc_port", "OSC port - optional", portBuf, sizeof(portBuf));
+  WiFiManagerParameter p_addr("osc_addr", "GO OSC address - optional", config.osc_address, sizeof(config.osc_address));
+  WiFiManagerParameter p_panic("panic_addr", "PANIC OSC address - optional", config.panic_address, sizeof(config.panic_address));
   wm.addParameter(&p_ip);
   wm.addParameter(&p_port);
   wm.addParameter(&p_addr);
   wm.addParameter(&p_panic);
 
-  // Seed the station config from our own saved credentials (WiFi.persistent
-  // is off, so nothing survives a reboot on its own - this is what makes
-  // "reconnect automatically" actually work): autoConnect() then just picks
-  // up this already-in-progress attempt with its own tested retry/timeout
-  // logic instead of us re-implementing that badly.
-  if (tryAutoConnectFirst && wifiSsid[0]) {
-    WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false);
-    WiFi.begin(wifiSsid, wifiPass);
-  }
-
+  // No manual WiFi.begin() pre-seed here: autoConnect() already reconnects
+  // using whatever the ESP-IDF has stored from the last successful join
+  // (WiFiManager's own wifiConnectNew() briefly flips WiFi.persistent(true)
+  // around that save, regardless of our global persistent(false)). A manual
+  // WiFi.begin() right before autoConnect() used to race its own internal
+  // WiFi.mode(WIFI_OFF) reset (autoConnect() turns STA off and back on
+  // before trying anything) - killing the connection attempt mid-handshake
+  // was a likely cause of "often fails to connect".
   bool ok = tryAutoConnectFirst
     ? wm.autoConnect(getUniqueName().c_str(), "password123")
     : wm.startConfigPortal(getUniqueName().c_str(), "password123");
