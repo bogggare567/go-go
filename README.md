@@ -81,6 +81,7 @@ The board reboots into GO-GO automatically. On first boot, pick a mode with the 
 ## Setting up
 
 - **OSC mode:** on first run the device opens its own WiFi network `GO-GO-XXXXXX` (password `password123`) and the setup page pops up by itself (WiFiManager, restyled to match the brand) — pick your venue network, enter its password, and set the QLab computer's IP/port right there too. The full control panel (status, settings, firmware, QLab remote) then lives at the address the page reports.
+  > **2.4 GHz only:** the ESP32-S3's WiFi radio doesn't support 5 GHz at all — it won't even show up in the network list during setup. If the venue network is 5 GHz-only (or a dual-band router hides the 2.4 GHz SSID), you need the 2.4 GHz band/SSID specifically, or a separate 2.4 GHz access point.
 - **BLE mode:** pair `GO-GO-XXXXXX` as a Bluetooth keyboard. GO types `Space`, PANIC types `Esc` — QLab's defaults.
   > **Note:** BLE mode is keyboard emulation — keystrokes go to the frontmost app. Keep the QLab window focused during the show, or use OSC mode, which doesn't care about focus.
 - **LoRa pair:** set one board to LoRa RX, the other to LoRa TX — the remote scans, shows discovered receivers with signal strength, hold to pair. Frequency is **Auto** by default: the gateway picks the cleanest channel in your region and the remote finds it by itself; pick a fixed channel in the menu to disable all automation.

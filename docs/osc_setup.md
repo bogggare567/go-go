@@ -58,6 +58,11 @@ window into QLab, separate from the physical button's job.
 
 ## Troubleshooting
 
+- **Venue network doesn't show up in WiFi Setup at all:** the ESP32-S3's
+  WiFi radio is **2.4 GHz only** — it has no 5 GHz hardware, so a 5 GHz-only
+  SSID (or the 5 GHz half of a dual-band router that hides its 2.4 GHz name)
+  will never appear in the scan. Confirm the venue has a 2.4 GHz SSID and
+  connect to that one specifically — this is a hardware limit, not a bug.
 - **`NO WIFI` on the OLED:** click to retry / reopen the setup portal, hold
   to go to the menu. Check the venue network is actually in range and the
   password was typed correctly during onboarding.
