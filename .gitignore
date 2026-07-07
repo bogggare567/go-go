@@ -7,3 +7,8 @@ docs/.demo_cache/
 __pycache__/
 *.pyc
 *.bak
+
+# Owner's own promo drafts / production notes - useful locally, not
+# something a developer or GitHub visitor needs to see in the repo.
+promotion/
+docs/video_script.md

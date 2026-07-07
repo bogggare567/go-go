@@ -107,7 +107,7 @@ see [docs/osc_setup.md](docs/osc_setup.md) for the step-by-step.
 - **[User manual (RU)](docs/MANUAL.md)** — first boot, the one-button language, every mode and the web panel
 - **[Presentation-style manual (RU)](docs/PRESENTATION.md)** — same content as slides, one big screenshot per screen, LoRa range explained
 - [OSC / QLab setup](docs/osc_setup.md) · [LoRa configuration](docs/lora_configuration.md) · [Hardware assembly](docs/hardware_assembly.md)
-- [Usage scenarios](docs/SCENARIOS.md) · [Roadmap](docs/ROADMAP.md) · [Audit report](docs/AUDIT.md)
+- [Usage scenarios](docs/SCENARIOS.md) · [Roadmap](docs/ROADMAP.md) · [Audit checklists](docs/AUDIT.md)
 
 ## Hardware
 
