@@ -137,7 +137,6 @@ void setup() {
   pinMode(PIN_BATTERY_CTRL, OUTPUT);
   ledWrite(false);
   digitalWrite(PIN_BATTERY_CTRL, LOW);
-  ledSelfTest();
 
   analogReadResolution(12);
 

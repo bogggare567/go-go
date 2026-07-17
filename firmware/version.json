@@ -1,5 +1,5 @@
 {
-  "version": "v16.18",
+  "version": "v16.19",
   "url": "https://raw.githubusercontent.com/bogggare567/go-go/main/firmware/go-go.bin",
-  "notes": "WiFi Setup reliability fix (removed a redundant WiFi.begin() that raced WiFiManager's own connect logic; more retries/longer timeout per attempt); explicit 2.4 GHz-only documentation; BLE key remap now supports pressing an actual key on your computer's keyboard in the web panel, not just picking from a preset list"
+  "notes": "Removed the boot-time LED self-test screen; unified every hint line on the OLED to one style (click X hold Y) and fixed a real bug where the Status screen's device ID line rendered below the visible area in LoRa TX mode; web panel and WiFi Setup's own OSC fields are now bilingual (RU/EN toggle, remembers your choice) - OLED stays English until it has a Cyrillic-capable font"
 }

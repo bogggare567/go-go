@@ -15,26 +15,6 @@ void blinkLedOnce() {
   ledWrite(false);
 }
 
-void ledSelfTest() {
-  // Long visible test. If the standalone Arduino Blink sketch works, this must blink too.
-  // If it does not, change GO_LED_PIN above to the exact LED pin for your board profile.
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
-  display.setTextSize(2);
-  display.setCursor(16, 18);
-  display.print("LED TEST");
-  display.setTextSize(1);
-  display.setCursor(29, 42);
-  display.print("watch diode");
-  display.display();
-  for (int i = 0; i < 4; i++) {
-    ledWrite(true);
-    delay(180);
-    ledWrite(false);
-    delay(180);
-  }
-}
-
 // ============================================================================
 // Battery
 // ============================================================================

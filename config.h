@@ -1,5 +1,5 @@
 // GO-GO — shared types, pins, constants and global state declarations.
-#define GOGO_VERSION "v16.18"
+#define GOGO_VERSION "v16.19"
 // Split 1:1 from the v15 monolith; behavior must stay identical.
 #pragma once
 
@@ -11,6 +11,16 @@
 #include <Preferences.h>
 
 #include <WiFi.h>
+// NOTE: tried a Russian wm_strings_ru.h via WM_STRINGS_FILE (see git history)
+// - doesn't work. WiFiManager.cpp is compiled as its own translation unit and
+// resolves that macro from ITS OWN default, not ours; the library's own code
+// comment admits this ("WILL NOT WORK if you define in your sketch, must be
+// build flag"). Overriding it for real needs a toolchain-wide compiler flag,
+// which would be invisible in this repo and break silently on every library
+// reinstall - not worth it for the portal's own chrome (Save/SSID/Password).
+// Our own content inside the portal (OSC field labels in osc_wifi.cpp, the
+// CSS in brandHead()) is unaffected by this - that's plain runtime code, no
+// cross-translation-unit macro issue.
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 #include <OSCMessage.h>

@@ -1,5 +1,6 @@
 // GO-GO — ui_screens module (split 1:1 from v15 monolith).
 #include "gogo.h"
+#include "font_cyr.h"
 
 void setScreen(uint8_t s) {
   currentScreen = (Screen)s;
@@ -275,11 +276,11 @@ void drawPairSelect() {
     drawCenteredText("LED blinks", 32, 1);
     String cur = String("Current: ") + peerTargetString();
     drawCenteredText(cur.c_str(), 43, 1);
-    drawCenteredText("hold: ANY", 54, 1);
+    drawCenteredText("hold any", 54, 1);
   } else {
     if (selectedPeerIndex >= count) selectedPeerIndex = 0;
     int idx = discoveredIndexByVisibleOrder(selectedPeerIndex);
-    String title = String(selectedPeerIndex + 1) + String("/") + String(count) + String("  hold pair");
+    String title = String(selectedPeerIndex + 1) + String("/") + String(count);
     drawCenteredText(title.c_str(), 17, 1);
     if (idx >= 0) {
       String id = String("RX ") + shortIdString(discoveredPeers[idx].id);
@@ -287,7 +288,7 @@ void drawPairSelect() {
       String rssi = String("RSSI ") + String(discoveredPeers[idx].rssi) + String(" dBm");
       drawCenteredText(rssi.c_str(), 41, 1);
     }
-    drawCenteredText("click next", 54, 1);
+    drawCenteredText("click next hold pair", 54, 1);
   }
   drawHoldProgress();
   display.display();
@@ -302,21 +303,23 @@ void drawGoScreen() {
   display.setTextColor(SSD1306_WHITE);
   String top;
   if (controlMode == MODE_OSC_WIFI) {
-    top = WiFi.status() == WL_CONNECTED ? "OSC OK" : "OSC WAIT";
+    top = WiFi.status() == WL_CONNECTED ? "OSC ОК" : "OSC ЖДЁМ";
   } else if (controlMode == MODE_BLE_HID) {
-    top = bleConnected ? "BLE OK" : "BLE WAIT";
+    top = bleConnected ? "BLE ОК" : "BLE ЖДЁМ";
   } else if (controlMode == MODE_LORA_REMOTE) {
-    top = loraPeerFound() ? String("TX OK ") + shortIdString(lastPeerId) : "TX SEARCH";
+    top = loraPeerFound() ? String("TX ОК ") + shortIdString(lastPeerId) : "TX ПОИСК";
   } else if (controlMode == MODE_LORA_GATEWAY) {
     if (!loraPeerFound()) {
-      top = "RX LINK WAIT";
+      top = "RX ЖДЁМ";
     } else if (outputWantsBle()) {
-      top = bleConnected ? "RX BLE OK" : "RX BLE WAIT";
+      top = bleConnected ? "RX BLE ОК" : "RX BLE ЖДЁМ";
     } else if (outputWantsOsc()) {
-      top = (WiFi.status() == WL_CONNECTED) ? "RX OSC OK" : "RX OSC WAIT";
+      top = (WiFi.status() == WL_CONNECTED) ? "RX OSC ОК" : "RX OSC ЖДЁМ";
     }
   }
-  drawCenteredText(top.c_str(), 2, 1);
+  display.setFont(&CourierCyr7pt8b);
+  drawCenteredText(ru(top.c_str()), 2, 1);
+  display.setFont(NULL);
 
   int btnX = 34, btnY = 14, btnW = 60, btnH = 32;
   display.fillRect(btnX, btnY, btnW, btnH, SSD1306_WHITE);
@@ -417,7 +420,7 @@ void drawLoraSearch() {
     drawCenteredText("waiting for TX", 32, 1);
     drawCenteredText(outputWantsBle() ? "Out: BLE" : "Out: OSC", 45, 1);
   }
-  drawCenteredText("hold: menu", 55, 1);
+  drawCenteredText("click retry hold menu", 55, 1);
   drawHoldProgress();
   display.display();
 }
@@ -444,8 +447,7 @@ void drawLoraLinkLost() {
   drawCenteredText("LINK LOST", 10, 2);
   display.setTextSize(1);
   drawCenteredText(isLoRaRemote() ? "RX disconnected" : "TX disconnected", 32, 1);
-  drawCenteredText("click: retry", 45, 1);
-  drawCenteredText("hold: menu", 55, 1);
+  drawCenteredText("click retry hold menu", 55, 1);
   drawHoldProgress();
   display.display();
 }
@@ -456,13 +458,14 @@ void drawNoConnection() {
   drawConnectionIndicator(106, 0);
 
   if (controlMode == MODE_OSC_WIFI) {
-    drawCenteredText("NO WIFI", 14, 2);
-    drawCenteredText("click: retry setup", 40, 1);
-    drawCenteredText("hold: menu", 52, 1);
+    display.setFont(&CourierCyr7pt8b);
+    drawCenteredText(ru("НЕТ WIFI"), 14, 2);
+    display.setFont(NULL);
+    drawCenteredText("click retry hold menu", 40, 1);
   } else if (controlMode == MODE_BLE_HID) {
     drawCenteredText("NO BLE", 14, 2);
     drawCenteredText(getUniqueName().c_str(), 36, 1);
-    drawCenteredText("hold: menu", 52, 1);
+    drawCenteredText("click retry hold menu", 52, 1);
   } else if (isLoRaRemote()) {
     drawCenteredText("NO LINK", 14, 2);
     drawCenteredText("RX not seen", 34, 1);
@@ -482,11 +485,11 @@ void drawNoConnection() {
       drawCenteredText("NO OUT", 14, 2);
       drawCenteredText("check output", 38, 1);
     }
-    drawCenteredText("hold: menu", 52, 1);
+    drawCenteredText("click retry hold menu", 52, 1);
   } else {
     drawCenteredText("NO LINK", 14, 2);
     drawCenteredText("check mode", 38, 1);
-    drawCenteredText("hold: menu", 52, 1);
+    drawCenteredText("click retry hold menu", 52, 1);
   }
 
   drawHoldProgress();
@@ -517,12 +520,15 @@ void drawStatusScreen() {
     display.setCursor(0, y); display.print("GO: "); display.print(keyName(goKeyCode)); y += 8;
     display.setCursor(0, y); display.print("PANIC: "); display.print(keyName(panicKeyCode));
   } else if (isLoRaRemote()) {
+    // Only 6 row slots fit below the title (16..56 in 8px steps) - device ID
+    // used to be a 7th line here, rendered off the bottom edge and never
+    // visible. RX id + RSSI share a line to make room for the hint instead.
     display.setCursor(0, y); display.print("Radio: "); display.print(loraInitialized ? "OK" : "FAIL"); y += 8;
     display.setCursor(0, y); display.print("Pair: "); display.print(peerTargetString()); y += 8;
-    display.setCursor(0, y); display.print("RX: "); display.print(loraPeerFound() ? shortIdString(lastPeerId) : "WAIT"); y += 8;
-    display.setCursor(0, y); display.print("RSSI: "); if (lastPeerId) display.print(lastPeerRssi); else display.print("--"); y += 8;
-    display.setCursor(0, y); display.print("CH: "); display.print(currentRegion().name); display.print(" "); display.print(radioCfg.freq, 2); if (freqAuto) display.print(" A"); y += 8;
-    display.setCursor(0, y); display.print("ID: "); display.print(shortIdString(deviceId));
+    display.setCursor(0, y); display.print("RX: "); display.print(loraPeerFound() ? shortIdString(lastPeerId) : "WAIT");
+    display.print(" RSSI:"); if (lastPeerId) display.print(lastPeerRssi); else display.print("--");
+    y += 8;
+    display.setCursor(0, y); display.print("CH: "); display.print(currentRegion().name); display.print(" "); display.print(radioCfg.freq, 2); if (freqAuto) display.print(" A");
   } else if (isLoRaGateway()) {
     display.setCursor(0, y); display.print("Radio: "); display.print(loraInitialized ? "OK" : "FAIL"); y += 8;
     display.setCursor(0, y); display.print("Link: "); display.print(loraPeerFound() ? "OK" : "WAIT"); y += 8;
@@ -530,11 +536,9 @@ void drawStatusScreen() {
     display.setCursor(0, y); display.print("Out: "); display.print(outputLabel(gatewayOutputMode)); display.print(" ");
     if (outputWantsOsc()) display.print(WiFi.status() == WL_CONNECTED ? "OK" : "WAIT");
     else if (outputWantsBle()) display.print(bleConnected ? "OK" : "WAIT");
-    y += 8;
-    display.setCursor(0, y); display.print("ID: "); display.print(shortIdString(deviceId));
   }
 
-  // Keep status screen readable: menu/back hint is intentionally omitted here.
+  drawCenteredText("click menu hold go", 56, 1);
   display.display();
 }
 
@@ -699,7 +703,7 @@ void drawWebSetup() {
     drawCenteredText(webUrl().c_str(), 27, 1);
     drawCenteredText("or gogo.local", 39, 1);
   }
-  drawCenteredText("click: exit", 56, 1);
+  drawCenteredText("click exit", 56, 1);
   display.display();
 }
 
@@ -733,7 +737,7 @@ void drawSpectrum() {
     }
   }
 
-  drawCenteredText("click: back", 56, 1);
+  drawCenteredText("click back", 56, 1);
   display.display();
 }
 
@@ -744,38 +748,39 @@ void drawModeInfo() {
   if (controlMode == MODE_BLE_HID) {
     drawCenteredText("BLE INFO", 0, 2);
     display.setTextSize(1);
-    display.setCursor(0, 18); display.print("Device:");
-    display.setCursor(0, 29); display.print(getUniqueName());
-    display.setCursor(0, 41); display.print(bleConnected ? "Connected" : "Waiting pair");
-    display.setCursor(0, 54);
+    display.setCursor(0, 18); display.print(getUniqueName());
+    display.setCursor(0, 30); display.print(bleConnected ? "Connected" : "Waiting pair");
+    display.setCursor(0, 42);
     display.print("GO="); display.print(keyName(goKeyCode));
     display.print(" PANIC="); display.print(keyName(panicKeyCode));
+    drawCenteredText("click menu hold go", 54, 1);
   } else if (controlMode == MODE_OSC_WIFI) {
     drawCenteredText("WiFi INFO", 0, 2);
     display.setTextSize(1);
-    display.setCursor(0, 18); display.print("AP:");
-    display.setCursor(0, 29); display.print(getUniqueName());
-    display.setCursor(0, 41); display.print("Pass: password123");
-    display.setCursor(0, 54); display.print("Setup in menu");
+    display.setCursor(0, 18); display.print(getUniqueName());
+    display.setCursor(0, 30); display.print("Pass: password123");
+    display.setCursor(0, 42); display.print("Setup in menu");
+    drawCenteredText("click menu hold go", 54, 1);
   } else if (isLoRaRemote()) {
     drawCenteredText("LoRa TX", 0, 2);
     display.setTextSize(1);
     display.setCursor(0, 18); display.print("Needs LoRa RX");
     display.setCursor(0, 30); display.print("Freq: "); display.print(radioCfg.freq, 1); display.print("MHz");
-    display.setCursor(0, 42); display.print("GO sends LoRa pkt");
-    display.setCursor(0, 54); display.print("No ACK delay");
+    display.setCursor(0, 42); display.print("GO: instant, no ACK");
+    drawCenteredText("click menu hold go", 54, 1);
   } else if (isLoRaGateway()) {
     drawCenteredText("LoRa RX", 0, 2);
     display.setTextSize(1);
     display.setCursor(0, 18); display.print("Receives TX");
     display.setCursor(0, 30); display.print("RX->"); display.print(outputFullLabel(gatewayOutputMode));
     display.setCursor(0, 42); display.print("Freq: "); display.print(radioCfg.freq, 1); display.print("MHz");
-    display.setCursor(0, 54); display.print("Output in menu");
+    drawCenteredText("click menu hold go", 54, 1);
   } else {
     drawCenteredText("INFO", 0, 2);
     display.setTextSize(1);
     display.setCursor(0, 18); display.print("Mode not active");
     display.setCursor(0, 30); display.print("Use Mode menu");
+    drawCenteredText("click menu hold go", 54, 1);
   }
 
   drawHoldProgress();

@@ -40,6 +40,28 @@ bool isValidIP(const char* ip) {
   return true;
 }
 
+const char* ru(const char* utf8) {
+  static char buf[128];
+  size_t i = 0, j = 0;
+  while (utf8[i] != '\0' && j < sizeof(buf) - 1) {
+    uint8_t c = (uint8_t)utf8[i];
+    if (c < 0x80) {
+      buf[j++] = (char)c;
+      i++;
+    } else if (c == 0xD0 || c == 0xD1) {
+      uint8_t c2 = (uint8_t)utf8[i + 1];
+      if (c == 0xD0 && c2 == 0x81) buf[j++] = (char)0xC0;       // Ё
+      else if (c == 0xD1 && c2 == 0x91) buf[j++] = (char)0xC1;  // ё
+      else buf[j++] = (char)c2;
+      i += 2;
+    } else {
+      i++;  // stray/unsupported byte - drop it rather than misrender
+    }
+  }
+  buf[j] = '\0';
+  return buf;
+}
+
 uint16_t crc16_ccitt(const uint8_t* data, size_t len) {
   uint16_t crc = 0xFFFF;
   for (size_t i = 0; i < len; i++) {

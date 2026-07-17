@@ -77,10 +77,10 @@ static bool runWiFiManager(bool tryAutoConnectFirst) {
   wm.setConnectRetries(3);
   wm.setConnectTimeout(15);
 
-  WiFiManagerParameter p_ip("osc_ip", "OSC target IP (QLab computer) - optional, can set later in Web Setup", config.osc_ip, sizeof(config.osc_ip));
-  WiFiManagerParameter p_port("osc_port", "OSC port - optional", portBuf, sizeof(portBuf));
-  WiFiManagerParameter p_addr("osc_addr", "GO OSC address - optional", config.osc_address, sizeof(config.osc_address));
-  WiFiManagerParameter p_panic("panic_addr", "PANIC OSC address - optional", config.panic_address, sizeof(config.panic_address));
+  WiFiManagerParameter p_ip("osc_ip", "IP цели OSC (компьютер с QLab) — необязательно, можно задать позже в Web Setup", config.osc_ip, sizeof(config.osc_ip));
+  WiFiManagerParameter p_port("osc_port", "Порт OSC — необязательно", portBuf, sizeof(portBuf));
+  WiFiManagerParameter p_addr("osc_addr", "OSC-адрес GO — необязательно", config.osc_address, sizeof(config.osc_address));
+  WiFiManagerParameter p_panic("panic_addr", "OSC-адрес PANIC — необязательно", config.panic_address, sizeof(config.panic_address));
   wm.addParameter(&p_ip);
   wm.addParameter(&p_port);
   wm.addParameter(&p_addr);
