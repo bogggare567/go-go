@@ -39,8 +39,12 @@ jobs:
       # starts failing right after a Heltec core bump with an unrelated-looking
       # "numbers: No such file or directory" error, that's almost certainly it —
       # check the installed core version and the toolchain include dir.
+      # arduino-cli требует, чтобы имя папки скетча совпадало с именем .ino.
+      # Репо чекаутится в go-go/, а скетч — LoRa_soundkorb.ino, поэтому
+      # компилируем через симлинк с правильным именем.
       - name: Compile
         run: |
+          ln -s "$PWD" /tmp/LoRa_soundkorb
           arduino-cli compile \
             --fqbn "Heltec-esp32:esp32:heltec_wifi_lora_32_V3:UploadSpeed=921600,CPUFreq=240,DebugLevel=none,LoopCore=1,EventsCore=1,LORAWAN_REGION=0,LoRaWanDebugLevel=0,LORAWAN_PREAMBLE_LENGTH=0,SLOW_CLK_TPYE=0" \
-            .
+            /tmp/LoRa_soundkorb
