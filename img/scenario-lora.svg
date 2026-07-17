@@ -53,14 +53,20 @@
 .q-panicrow { opacity:0; animation: k-qpanicrow 12s linear infinite; }
 @keyframes k-qpanicrow { 0%,61% {opacity:0} 63%,66% {opacity:.4} 71%,100% {opacity:0} }
 
-@keyframes k-wave-go   { 0%,32% {opacity:0; transform:scale(.4)} 34% {opacity:.9} 40% {opacity:0; transform:scale(1.7)} 41%,100% {opacity:0; transform:scale(.4)} }
-@keyframes k-wave-ack  { 0%,34% {opacity:0; transform:scale(.4)} 36% {opacity:.9} 42% {opacity:0; transform:scale(1.7)} 43%,100% {opacity:0; transform:scale(.4)} }
-@keyframes k-wave-panic{ 0%,61% {opacity:0; transform:scale(.4)} 63% {opacity:.9} 69% {opacity:0; transform:scale(1.7)} 70%,100% {opacity:0; transform:scale(.4)} }
-@keyframes k-wave-ack2 { 0%,63% {opacity:0; transform:scale(.4)} 65% {opacity:.9} 71% {opacity:0; transform:scale(1.7)} 72%,100% {opacity:0; transform:scale(.4)} }
-.wave-go    { animation: k-wave-go    12s ease-out infinite; transform-origin: 470px 480px; transform-box: view-box; }
-.wave-panic { animation: k-wave-panic 12s ease-out infinite; transform-origin: 470px 480px; transform-box: view-box; }
-.wave-ack   { animation: k-wave-ack   12s ease-out infinite; transform-origin: 700px 480px; transform-box: view-box; }
-.wave-ack2  { animation: k-wave-ack2  12s ease-out infinite; transform-origin: 700px 480px; transform-box: view-box; }
+/* Направление читается движением, а не пульсом на месте:
+   GO/PANIC — дуги летят от TX вправо к RX; ACK — от RX влево обратно к TX. */
+@keyframes k-wave-go   { 0%,32% {opacity:0; transform:translateX(0)} 33.5% {opacity:.9} 40% {opacity:0; transform:translateX(85px)} 41%,100% {opacity:0; transform:translateX(0)} }
+@keyframes k-wave-ack  { 0%,34% {opacity:0; transform:translateX(0)} 35.5% {opacity:.9} 42% {opacity:0; transform:translateX(-85px)} 43%,100% {opacity:0; transform:translateX(0)} }
+@keyframes k-wave-panic{ 0%,61% {opacity:0; transform:translateX(0)} 62.5% {opacity:.9} 69% {opacity:0; transform:translateX(85px)} 70%,100% {opacity:0; transform:translateX(0)} }
+@keyframes k-wave-ack2 { 0%,63% {opacity:0; transform:translateX(0)} 64.5% {opacity:.9} 71% {opacity:0; transform:translateX(-85px)} 72%,100% {opacity:0; transform:translateX(0)} }
+.wave-go    { animation: k-wave-go    12s ease-out infinite; transform-box: view-box; }
+.wave-go2   { animation-delay: .2s; }
+.wave-panic { animation: k-wave-panic 12s ease-out infinite; transform-box: view-box; }
+.wave-panic2{ animation-delay: .2s; }
+.wave-ack   { animation: k-wave-ack   12s ease-out infinite; transform-box: view-box; }
+.wave-ackB  { animation-delay: .2s; }
+.wave-ack2  { animation: k-wave-ack2  12s ease-out infinite; transform-box: view-box; }
+.wave-ack2B { animation-delay: .2s; }
 </style>
 <rect width="1700" height="800" rx="24" fill="#101826"/>
 <text x="850" y="55" text-anchor="middle" fill="#e8eef7" font-size="27" font-weight="700" font-family="Unbounded, Menlo, sans-serif">GO-GO &#183; LoRa remote + gateway</text>
@@ -69,14 +75,20 @@
 <text x="230" y="270" text-anchor="middle" fill="#9fb0c8" font-size="16" font-family="Menlo, sans-serif">TX &#183; remote (in hand)</text>
 <text x="800" y="270" text-anchor="middle" fill="#9fb0c8" font-size="16" font-family="Menlo, sans-serif">RX &#183; gateway (by the computer)</text>
 
-<!-- outbound GO/PANIC waves TX -> RX, ACK waves back -->
+<!-- GO летит TX -> RX (зелёный, вправо); PANIC — красный туда же; ACK возвращается RX -> TX (синий, влево) -->
 <g stroke="#6fd18c" stroke-width="5" fill="none">
-  <path class="wave-go" d="M470 460 a70 70 0 0 1 0 110"/>
-  <path class="wave-panic" d="M470 460 a70 70 0 0 1 0 110"/>
+  <path class="wave-go" d="M420 465 a55 55 0 0 1 0 90"/>
+  <path class="wave-go wave-go2" d="M420 450 a75 75 0 0 1 0 120"/>
+</g>
+<g stroke="#e5484d" stroke-width="5" fill="none">
+  <path class="wave-panic" d="M420 465 a55 55 0 0 1 0 90"/>
+  <path class="wave-panic wave-panic2" d="M420 450 a75 75 0 0 1 0 120"/>
 </g>
 <g stroke="#7fb4ff" stroke-width="4" fill="none">
-  <path class="wave-ack" d="M700 460 a55 55 0 0 0 0 110"/>
-  <path class="wave-ack2" d="M700 460 a55 55 0 0 0 0 110"/>
+  <path class="wave-ack" d="M540 465 a55 55 0 0 0 0 90"/>
+  <path class="wave-ack wave-ackB" d="M540 450 a75 75 0 0 0 0 120"/>
+  <path class="wave-ack2" d="M540 465 a55 55 0 0 0 0 90"/>
+  <path class="wave-ack2 wave-ack2B" d="M540 450 a75 75 0 0 0 0 120"/>
 </g>
 
 <g transform="translate(-30,300) scale(0.5)">

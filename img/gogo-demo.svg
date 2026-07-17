@@ -21,9 +21,12 @@
 @keyframes k-press { 0%,32% {opacity:0; transform:scale(.5)} 33% {opacity:.95} 37% {opacity:0; transform:scale(1.6)} 38%,59% {opacity:0; transform:scale(.5)} 60% {opacity:.95} 61% {opacity:.95; transform:scale(1.2)} 66% {opacity:0; transform:scale(1.7)} 67%,100% {opacity:0; transform:scale(.5)} }
 .press { animation: k-press 12s ease-out infinite; transform-origin: 106px 470px; transform-box: view-box; }
 
-@keyframes k-wave { 0%,33% {opacity:0; transform:scale(.4)} 35% {opacity:.9} 44% {opacity:0; transform:scale(1.6)} 45%,61% {opacity:0; transform:scale(.4)} 63% {opacity:.9} 72% {opacity:0; transform:scale(1.6)} 73%,100% {opacity:0; transform:scale(.4)} }
-.wave { animation: k-wave 12s ease-out infinite; transform-origin: 560px 480px; transform-box: view-box; }
-.wave2 { animation-delay: .3s; }
+/* Волны «летят» от антенны платы к Маку: сдвиг вправо + затухание.
+   Три дуги с задержками читаются как движение сигнала, а не пульс на месте. */
+@keyframes k-wave { 0%,33% {opacity:0; transform:translateX(0)} 34.5% {opacity:.9} 42% {opacity:0; transform:translateX(110px)} 43%,61% {opacity:0; transform:translateX(0)} 62.5% {opacity:.9} 70% {opacity:0; transform:translateX(110px)} 71%,100% {opacity:0; transform:translateX(0)} }
+.wave { animation: k-wave 12s ease-out infinite; transform-box: view-box; }
+.wave2 { animation-delay: .22s; }
+.wave3 { animation-delay: .44s; }
 
 /* QLab window: standby moves 1 -> 2 on GO, back at loop end */
 @keyframes k-qsel1 { 0%,34% {opacity:1} 35%,97% {opacity:0} 98%,100% {opacity:1} }
@@ -109,10 +112,11 @@
   <circle cx="756" cy="475" r="2.5" fill="#9a9a9e"/>
 </g>
 
-<!-- radio waves from board antenna toward the Mac -->
+<!-- radio waves: летят от антенны платы (справа) в сторону Мака -->
 <g stroke="#6fd18c" stroke-width="5" fill="none">
-  <path class="wave" d="M570 435 a55 55 0 0 1 0 90"/>
-  <path class="wave wave2" d="M592 415 a85 85 0 0 1 0 130"/>
+  <path class="wave" d="M560 445 a45 45 0 0 1 0 70"/>
+  <path class="wave wave2" d="M560 435 a62 62 0 0 1 0 90"/>
+  <path class="wave wave3" d="M560 425 a80 80 0 0 1 0 110"/>
 </g>
 
 <!-- Heltec board (photo space 800x800 scaled 0.78, placed at 0,250) -->
